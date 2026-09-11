@@ -13,6 +13,9 @@ import com.attendenceSystem.module.faceid.mapper.request.CreateFaceProfileReques
 import com.attendenceSystem.module.faceid.mapper.response.FaceProfileResponseMapper;
 import com.attendenceSystem.module.faceid.repository.FaceProfileRepository;
 import com.attendenceSystem.module.faceid.service.FaceProfileService;
+import com.attendenceSystem.exception.custom.BadRequestException;
+import com.attendenceSystem.exception.custom.ConflictException;
+import com.attendenceSystem.exception.custom.ResourceNotFoundException;
 import com.attendenceSystem.module.user.entity.User;
 import com.attendenceSystem.module.user.repository.UserRepository;
 
@@ -32,10 +35,10 @@ public class FaceProfileServiceImpl implements FaceProfileService {
         validateCreateRequest(request);
 
         User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
 
         if (faceProfileRepository.findByFaceCode(request.getFaceCode()).isPresent()) {
-            throw new IllegalArgumentException("Face code đã tồn tại");
+            throw new ConflictException("Face code đã tồn tại");
         }
 
         FaceProfile faceProfile = CreateFaceProfileRequestMapper.toEntity(request, user);
@@ -47,16 +50,16 @@ public class FaceProfileServiceImpl implements FaceProfileService {
     @Override
     public FaceProfileResponse updateFaceProfile(UpdateFaceProfileRequest request) {
         if (request == null || request.getId() == null) {
-            throw new IllegalArgumentException("Face profile không hợp lệ");
+            throw new BadRequestException("Face profile không hợp lệ");
         }
 
         FaceProfile saved = faceProfileRepository.findById(request.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Face profile không tồn tại"));
+                .orElseThrow(() -> new ResourceNotFoundException("Face profile không tồn tại"));
 
         if (request.getFaceCode() != null && !request.getFaceCode().equals(saved.getFaceCode())) {
             faceProfileRepository.findByFaceCode(request.getFaceCode()).ifPresent(existing -> {
                 if (!existing.getId().equals(request.getId())) {
-                    throw new IllegalArgumentException("Face code đã tồn tại");
+                    throw new ConflictException("Face code đã tồn tại");
                 }
             });
             saved.setFaceCode(request.getFaceCode());
@@ -79,7 +82,7 @@ public class FaceProfileServiceImpl implements FaceProfileService {
     @Override
     public FaceProfileResponse getFaceProfile(Long id) {
         FaceProfile faceProfile = faceProfileRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Face profile không tìm thấy"));
+                .orElseThrow(() -> new ResourceNotFoundException("Face profile không tìm thấy"));
         return mapper.fromEntity(faceProfile);
     }
 
@@ -87,7 +90,7 @@ public class FaceProfileServiceImpl implements FaceProfileService {
     public FaceProfileResponse getByFaceCode(String faceCode) {
         return faceProfileRepository.findByFaceCode(faceCode)
                 .map(mapper::fromEntity)
-                .orElseThrow(() -> new IllegalArgumentException("Face profile không tìm thấy"));
+                .orElseThrow(() -> new ResourceNotFoundException("Face profile không tìm thấy"));
     }
 
     @Override
@@ -104,7 +107,7 @@ public class FaceProfileServiceImpl implements FaceProfileService {
                 || request.getUserId() == null
                 || request.getFaceCode() == null
                 || request.getFaceCode().isBlank()) {
-            throw new IllegalArgumentException("Dữ liệu face profile không hợp lệ");
+            throw new BadRequestException("Dữ liệu face profile không hợp lệ");
         }
     }
 }

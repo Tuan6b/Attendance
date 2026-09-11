@@ -5,9 +5,13 @@ import java.time.temporal.IsoFields;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.attendenceSystem.exception.custom.BadRequestException;
+import com.attendenceSystem.exception.custom.ConflictException;
+import com.attendenceSystem.exception.custom.ResourceNotFoundException;
 import com.attendenceSystem.module.attendance.dto.request.CreateLeaveRequest;
 import com.attendenceSystem.module.attendance.dto.response.EmployeeLeaveListResponse;
 import com.attendenceSystem.module.attendance.dto.response.LeaveDetailResponse;
@@ -64,13 +68,13 @@ public class LeaveServiceImpl implements LeaveService {
     @Override
     public LeaveRequestResponse createLeaveRequest(final CreateLeaveRequest request) {
         if (request == null) {
-            throw new IllegalArgumentException("Yêu cầu không hợp lệ");
+            throw new BadRequestException("Yêu cầu không hợp lệ");
         }
         if (request.getStartDate() == null || request.getEndDate() == null) {
-            throw new IllegalArgumentException("Ngày bắt đầu và ngày kết thúc không được để trống");
+            throw new BadRequestException("Ngày bắt đầu và ngày kết thúc không được để trống");
         }
         if (request.getStartDate().isAfter(request.getEndDate())) {
-            throw new IllegalArgumentException("Ngày bắt đầu phải trước ngày kết thúc");
+            throw new BadRequestException("Ngày bắt đầu phải trước ngày kết thúc");
         }
 
         leaveScheduleService.validateBlackoutPeriod(request.getStartDate());
@@ -123,24 +127,24 @@ public class LeaveServiceImpl implements LeaveService {
     @Override
     public LeaveDetailResponse getLeaveDetail(final Long id) {
         if (id == null) {
-            throw new IllegalArgumentException("ID yêu cầu nghỉ phép không hợp lệ");
+            throw new BadRequestException("ID yêu cầu nghỉ phép không hợp lệ");
         }
         LeaveRequest leave = leaveRequestRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy yêu cầu nghỉ phép với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu nghỉ phép với ID: " + id));
         return leaveDetailResponseMapper.fromEntity(leave);
     }
 
     private void validateManagerAction() {
         if (SecurityUtil.getCurrentUserRole() != Role.MANAGER) {
-            throw new IllegalStateException("Bạn không có quyền thực hiện hành động này");
+            throw new AccessDeniedException("Bạn không có quyền thực hiện hành động này");
         }
     }
 
     private LeaveRequest findByIdWithStatusPending(final Long id) {
         LeaveRequest leaveRequest = leaveRequestRepository.findById(id)
-                .orElseThrow(() -> new IllegalStateException("Không tìm thấy đơn xin nghỉ phép"));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn xin nghỉ phép"));
         if (leaveRequest.getStatus() != LeaveStatus.PENDING) {
-            throw new IllegalStateException("Đơn nghỉ phép đã được xử lý");
+            throw new ConflictException("Đơn nghỉ phép đã được xử lý");
         }
         return leaveRequest;
     }

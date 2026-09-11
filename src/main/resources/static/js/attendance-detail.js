@@ -80,6 +80,15 @@
         return entry ? '<span class="status-badge ' + entry.cls + '">' + entry.text + '</span>' : '';
     }
 
+    function workingStatusLabel(workingStatus) {
+        var map = {
+            WORKING: { text: 'Đang làm việc', cls: 'present' },
+            CHECKED_OUT: { text: 'Không làm việc', cls: 'day-off' }
+        };
+        var entry = map[workingStatus];
+        return entry ? '<span class="status-badge ' + entry.cls + '">' + entry.text + '</span>' : '';
+    }
+
     /* ---------- modal open / close ---------- */
 
     function openAttendanceDetail(recordId, apiBase) {
@@ -137,7 +146,12 @@
                 checkStatusHtml += (checkStatusHtml ? ' ' : '') + checkStatusLabel(data.checkStatuses[i]);
             }
         }
-        var statusHtml = statusFromAttendance || checkStatusHtml || '<span class="status-badge present">Đúng giờ</span>';
+        var statusHtml = statusFromAttendance;
+        if (!statusHtml) {
+            var dayHtml = checkStatusHtml || '<span class="status-badge present">Đúng giờ</span>';
+            var workingHtml = workingStatusLabel(data.workingStatus);
+            statusHtml = dayHtml + (workingHtml ? ' ' + workingHtml : '');
+        }
         html += '    <div class="detail-info-item"><label>Trạng thái</label><div class="value">' + statusHtml + '</div></div>';
         html += '    <div class="detail-info-item"><label>Ghi chú</label><div class="value">' + escapeHtml(data.note || '-') + '</div></div>';
         html += '  </div>';

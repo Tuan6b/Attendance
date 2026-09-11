@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import com.attendenceSystem.module.attendance.dto.response.ManagerAttendanceListResponse;
 import com.attendenceSystem.module.attendance.entity.enums.AttendanceCheckStatus;
+import com.attendenceSystem.module.attendance.entity.enums.WorkingStatus;
 import com.attendenceSystem.module.attendance.repository.projection.ManagerAttendanceList;
 import com.attendenceSystem.module.attendance.util.AttendanceCalculator;
 
@@ -27,6 +28,7 @@ public class ManagerAttendanceListResponseMapper {
                 .checkInTime(list.getCheckInTime())
                 .checkOutTime(list.getCheckOutTime())
                 .status(list.getStatus())
+                .workingStatus(WorkingStatus.fromCheckTimes(list.getCheckInTime(), list.getCheckOutTime()))
                 .checkStatuses(checkStatuses)
                 .note(list.getNote())
                 .late(late)

@@ -13,6 +13,8 @@ import com.attendenceSystem.module.schedule.mapper.request.CreateHolidayRequestM
 import com.attendenceSystem.module.schedule.mapper.response.HolidayResponseMapper;
 import com.attendenceSystem.module.schedule.repository.HolidayRepository;
 import com.attendenceSystem.module.schedule.service.HolidayService;
+import com.attendenceSystem.exception.custom.BadRequestException;
+import com.attendenceSystem.exception.custom.ResourceNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,7 +28,7 @@ public class HolidayServiceImpl implements HolidayService {
     @Override
     public HolidayResponse getHoliday(final Long id) {
         Holiday holiday = holidayRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Ngày lễ không tồn tại"));
+                .orElseThrow(() -> new ResourceNotFoundException("Ngày lễ không tồn tại"));
         return mapper.fromEntity(holiday);
     }
 
@@ -45,11 +47,11 @@ public class HolidayServiceImpl implements HolidayService {
     @Transactional
     public HolidayResponse updateHoliday(final UpdateHolidayRequest request) {
         if (request == null || request.getId() == null) {
-            throw new IllegalArgumentException("Dữ liệu ngày lễ không hợp lệ");
+            throw new BadRequestException("Dữ liệu ngày lễ không hợp lệ");
         }
 
         Holiday holiday = holidayRepository.findById(request.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Ngày lễ không tồn tại"));
+                .orElseThrow(() -> new ResourceNotFoundException("Ngày lễ không tồn tại"));
 
         if (request.getHolidayDate() != null) {
             holiday.setHolidayDate(request.getHolidayDate());
@@ -69,7 +71,7 @@ public class HolidayServiceImpl implements HolidayService {
     @Override
     public void deleteHoliday(final Long id) {
         if (!holidayRepository.existsById(id)) {
-            throw new IllegalArgumentException("Ngày lễ không tồn tại");
+            throw new ResourceNotFoundException("Ngày lễ không tồn tại");
         }
         holidayRepository.deleteById(id);
     }
@@ -83,7 +85,7 @@ public class HolidayServiceImpl implements HolidayService {
     private void validateHolidayRequest(final CreateHolidayRequest request) {
         if (request == null || request.getHolidayDate() == null || request.getName() == null
                 || request.getName().isBlank()) {
-            throw new IllegalArgumentException("Dữ liệu ngày lễ không hợp lệ");
+            throw new BadRequestException("Dữ liệu ngày lễ không hợp lệ");
         }
     }
 }

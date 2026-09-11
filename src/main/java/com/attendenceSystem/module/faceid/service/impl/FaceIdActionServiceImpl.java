@@ -3,6 +3,7 @@ package com.attendenceSystem.module.faceid.service.impl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.attendenceSystem.exception.custom.ConflictException;
 import com.attendenceSystem.exception.custom.ResourceNotFoundException;
 import com.attendenceSystem.module.faceid.entity.FaceProfile;
 import com.attendenceSystem.module.faceid.repository.FaceProfileRepository;
@@ -20,7 +21,7 @@ public class FaceIdActionServiceImpl implements FaceIdActionService {
     public void acceptFaceId(Long id) {
         FaceProfile faceProfile = getFaceProfileById(id);
         if (faceProfile.getIsAccept() != null) {
-            throw new IllegalStateException("Dữ liệu Face ID này đã được xử lý");
+            throw new ConflictException("Dữ liệu Face ID này đã được xử lý");
         }
         faceProfile.setIsAccept(true);
         faceProfileRepository.save(faceProfile);
@@ -31,7 +32,7 @@ public class FaceIdActionServiceImpl implements FaceIdActionService {
     public void rejectFaceId(Long id) {
         FaceProfile faceProfile = getFaceProfileById(id);
         if (faceProfile.getIsAccept() != null) {
-            throw new IllegalStateException("Dữ liệu Face ID này đã được xử lý");
+            throw new ConflictException("Dữ liệu Face ID này đã được xử lý");
         }
         faceProfile.setIsAccept(false);
 

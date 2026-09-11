@@ -38,24 +38,22 @@
 
                     <div class="card-body">
 
-                        <!-- SUCCESS / ERROR MESSAGES -->
-                        <div th:if="${successMessage}" class="success-message" th:text="${successMessage}"></div>
-                        <div th:if="${errorMessage}" class="error-message" th:text="${errorMessage}"></div>
+                        <!-- SUCCESS / ERROR MESSAGES (do JS điền khi gọi API) -->
+                        <div id="absentSuccessMessage" class="success-message" style="display:none;"></div>
+                        <div id="absentErrorMessage" class="error-message" style="display:none;"></div>
 
-                        <form class="absent-form" method="post" th:action="@{/attendance/leave/create}" th:object="${createLeaveRequest}">
+                        <form id="absentCreateForm" class="absent-form">
                             <!-- Date -->
                             <div class="form-grid">
 
                                 <div class="form-group">
                                     <label>Từ ngày</label>
-                                    <input type="date" name="startDate" th:field="*{startDate}" required>
-                                    <span th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}" class="field-error"></span>
+                                    <input type="date" name="startDate" id="startDate" required>
                                 </div>
 
                                 <div class="form-group">
                                     <label>Đến ngày</label>
-                                    <input type="date" name="endDate" th:field="*{endDate}" required>
-                                    <span th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}" class="field-error"></span>
+                                    <input type="date" name="endDate" id="endDate" required>
                                 </div>
 
                             </div>
@@ -63,9 +61,8 @@
                             <!-- Lý do -->
                             <div class="form-group">
                                 <label>Lý do</label>
-                                <textarea rows="5" name="reason" th:field="*{reason}" placeholder="Nhập lý do xin nghỉ..."
+                                <textarea rows="5" name="reason" id="reason" placeholder="Nhập lý do xin nghỉ..."
                                     required></textarea>
-                                <span th:if="${#fields.hasErrors('reason')}" th:errors="*{reason}" class="field-error"></span>
                             </div>
 
                             <!-- BUTTON -->
@@ -92,7 +89,7 @@
         </div>
     </div>
 
-
+    <script type="module" src="/js/absent/absent-create.js"></script>
 
 </body>
 

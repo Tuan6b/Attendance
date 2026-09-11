@@ -9,46 +9,37 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.attendenceSystem.constant.Routes;
 import com.attendenceSystem.constant.Views;
 import com.attendenceSystem.module.attendance.dto.request.CreateLeaveRequest;
 import com.attendenceSystem.module.attendance.dto.response.AttendanceHistoryStatsResponse;
-import com.attendenceSystem.module.attendance.dto.response.AttendanceResponse;
 import com.attendenceSystem.module.attendance.dto.response.EmployeeAttendanceListResponse;
 import com.attendenceSystem.module.attendance.dto.response.EmployeeLeaveListResponse;
 import com.attendenceSystem.module.attendance.dto.response.ManagerLeaveListResponse;
 import com.attendenceSystem.module.attendance.entity.enums.AttendanceStatus;
 import com.attendenceSystem.module.attendance.entity.enums.LeaveStatus;
-import com.attendenceSystem.module.attendance.exception.AlreadyCheckedInException;
-import com.attendenceSystem.module.attendance.exception.AlreadyCheckedOutException;
-import com.attendenceSystem.module.attendance.exception.InvalidAttendanceStateException;
-import com.attendenceSystem.module.attendance.exception.NotCheckedInException;
-import com.attendenceSystem.module.attendance.service.AttendanceActionService;
 import com.attendenceSystem.module.attendance.service.AttendanceService;
 import com.attendenceSystem.module.attendance.service.LeaveService;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
+/**
+ * Chỉ còn render trang (GET). Các hành động ghi dữ liệu (check-in/out, tạo/duyệt/từ chối đơn
+ * nghỉ phép) đã chuyển sang gọi API JSON bằng JS — xem {@code AttendanceApiController},
+ * {@code AttendanceManagerApiController} và {@code static/js/absent/absent-create.js},
+ * {@code templates/cms/absent/absent-list.html}. {@code checkIn}/{@code checkOut} MVC cũ đã
+ * xoá vì không còn view/JS nào gọi tới (kiosk dùng {@code /api/face-id/attendance}).
+ */
 @Controller
 @RequiredArgsConstructor
 @RequestMapping(Routes.Attendance.ROOT)
 public class AttendanceController {
     private final AttendanceService attendanceService;
     private final LeaveService leaveService;
-    private final AttendanceActionService attendanceActionService;
 
     @GetMapping
     public String toAttendanceListPage(
@@ -61,20 +52,6 @@ public class AttendanceController {
     @GetMapping(Routes.Attendance.CHECK)
     public String toAttendanceCheckPage() {
         return Views.Attendance.CHECK;
-    }
-
-    @PostMapping(Routes.Attendance.CHECK_IN)
-    public String checkIn(RedirectAttributes redirectAttributes) {
-        AttendanceResponse attendance = attendanceActionService.checkIn();
-        redirectAttributes.addFlashAttribute("successMessage", "Điểm danh thành công cho " + attendance.fullName());
-        return Views.Attendance.LIST;
-    }
-
-    @PostMapping(Routes.Attendance.CHECK_OUT)
-    public String checkOut(RedirectAttributes redirectAttributes) {
-        AttendanceResponse attendance = attendanceActionService.checkOut();
-        redirectAttributes.addFlashAttribute("successMessage", "Checkout thành công cho " + attendance.fullName());
-        return Views.Attendance.LIST;
     }
 
     @GetMapping(Routes.Attendance.HISTORY)
@@ -162,57 +139,5 @@ public class AttendanceController {
     public String toLeaveRequestPage(Model model) {
         model.addAttribute("createLeaveRequest", new CreateLeaveRequest());
         return Views.Attendance.LEAVE_CREATE;
-    }
-
-    @PostMapping(Routes.Attendance.LEAVE + Routes.Action.CREATE)
-    public String createLeaveRequest(
-            @Valid @ModelAttribute CreateLeaveRequest createLeaveRequest,
-            BindingResult result,
-            RedirectAttributes redirectAttributes,
-            Model model) {
-        if (result.hasErrors()) {
-            model.addAttribute("createLeaveRequest", createLeaveRequest);
-            return Views.Attendance.LEAVE_CREATE;
-        }
-        leaveService.createLeaveRequest(createLeaveRequest);
-        redirectAttributes.addFlashAttribute("successMessage", "Yêu cầu nghỉ phép đã được gửi.");
-        return Routes.REDIRECT + Routes.Attendance.ROOT + Routes.Attendance.LEAVE + Routes.Action.CREATE;
-    }
-
-    @PostMapping(Routes.Attendance.LEAVE + Routes.Action.ACCEPT + "/{id}")
-    public String acceptLeaveRequest(
-            @PathVariable("id") Long id,
-            RedirectAttributes redirectAttributes) {
-        leaveService.acceptLeave(id);
-        redirectAttributes.addFlashAttribute("successMessage", "Đã duyệt đơn nghỉ phép.");
-        return Routes.REDIRECT + Routes.Attendance.ROOT + Routes.Attendance.LEAVE;
-    }
-
-    @PostMapping(Routes.Attendance.LEAVE + Routes.Action.REJECT + "/{id}")
-    public String rejectLeaveRequest(
-            @PathVariable("id") Long id,
-            RedirectAttributes redirectAttributes) {
-        leaveService.rejectLeave(id);
-        redirectAttributes.addFlashAttribute("successMessage", "Đã từ chối đơn nghỉ phép.");
-        return Routes.REDIRECT + Routes.Attendance.ROOT + Routes.Attendance.LEAVE;
-    }
-
-    @ExceptionHandler({
-            AlreadyCheckedInException.class,
-            AlreadyCheckedOutException.class,
-            NotCheckedInException.class,
-            InvalidAttendanceStateException.class,
-            IllegalArgumentException.class
-    })
-    public String handleBadRequest(RuntimeException ex, RedirectAttributes redirectAttributes) {
-        redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
-        return Views.Attendance.LIST;
-    }
-
-    @ExceptionHandler(Exception.class)
-    public String handleUnexpectedError(Exception ex, RedirectAttributes redirectAttributes) {
-        log.error("Unexpected error in AttendanceController", ex);
-        redirectAttributes.addFlashAttribute("errorMessage", "Có lỗi xảy ra, vui lòng thử lại sau");
-        return Views.Attendance.LIST;
     }
 }

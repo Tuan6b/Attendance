@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,15 +17,17 @@ import com.attendenceSystem.module.attendance.dto.response.AttendanceDetailRespo
 import com.attendenceSystem.module.attendance.dto.response.ManagerStatsResponse;
 import com.attendenceSystem.module.attendance.entity.enums.AttendanceStatus;
 import com.attendenceSystem.module.attendance.service.AttendanceService;
+import com.attendenceSystem.module.attendance.service.LeaveService;
 
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping(Routes.API + Routes.Attendance.ROOT + Routes.Role.MANAGER)
 @RequiredArgsConstructor
-public class AttendanceManagerApiController {
+public class    AttendanceManagerApiController {
 
     private final AttendanceService attendanceService;
+    private final LeaveService leaveService;
 
     @GetMapping("/stats")
     public ResponseEntity<ManagerStatsResponse> getStats(
@@ -65,5 +68,17 @@ public class AttendanceManagerApiController {
     @GetMapping(Routes.Attendance.DETAIL + "/{id}")
     public ResponseEntity<AttendanceDetailResponse> getDetail(@PathVariable Long id) {
         return ResponseEntity.ok(attendanceService.getManagerAttendanceDetail(id));
+    }
+
+    @PostMapping(Routes.Attendance.LEAVE + Routes.Action.ACCEPT + "/{id}")
+    public ResponseEntity<Void> acceptLeave(@PathVariable Long id) {
+        leaveService.acceptLeave(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping(Routes.Attendance.LEAVE + Routes.Action.REJECT + "/{id}")
+    public ResponseEntity<Void> rejectLeave(@PathVariable Long id) {
+        leaveService.rejectLeave(id);
+        return ResponseEntity.noContent().build();
     }
 }

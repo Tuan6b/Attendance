@@ -114,13 +114,26 @@
                     LATE: '<span class="badge late">Đi muộn</span>',
                     EARLY_LEAVE: '<span class="badge warning">Về sớm</span>'
                 };
+                const workingStatusMap = {
+                    WORKING: '<span class="badge success">Đang làm việc</span>',
+                    CHECKED_OUT: '<span class="badge day-off">Không làm việc</span>'
+                };
                 let checkStatusBadges = '';
                 if (Array.isArray(item?.checkStatuses)) {
                     for (const cs of item.checkStatuses) {
                         if (checkStatusMap[cs]) checkStatusBadges += (checkStatusBadges ? ' ' : '') + checkStatusMap[cs];
                     }
                 }
-                const statusBadges = statusMap[item?.status] || checkStatusBadges || '<span class="badge success">Đúng giờ</span>';
+                // Trạng thái loại ngày (vắng/nghỉ phép/ngày nghỉ) ưu tiên hiển thị và không kèm
+                // trạng thái làm việc theo thời gian thực (không có ý nghĩa với các loại này).
+                // Với ngày làm việc bình thường (PRESENT), luôn hiện thêm đang làm việc/đã về
+                // bên cạnh đi muộn/về sớm/đúng giờ.
+                let statusBadges = statusMap[item?.status];
+                if (!statusBadges) {
+                    const dayBadge = checkStatusBadges || '<span class="badge success">Đúng giờ</span>';
+                    const workingBadge = workingStatusMap[item?.workingStatus] || '';
+                    statusBadges = dayBadge + (workingBadge ? ' ' + workingBadge : '');
+                }
                 tr.innerHTML = `
                     <td>${formatDate(item?.attendanceDate)}</td>
                     <td>${escapeHtml(name)}</td>

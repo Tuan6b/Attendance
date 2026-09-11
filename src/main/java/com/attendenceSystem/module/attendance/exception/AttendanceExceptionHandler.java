@@ -1,13 +1,18 @@
 package com.attendenceSystem.module.attendance.exception;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import lombok.extern.slf4j.Slf4j;
-
-@Slf4j
+/**
+ * Xử lý các exception đặc thù của module attendance (chỉ áp cho package
+ * {@code module.attendance.api}). Chỉ khai báo những exception mà advice này biết — nếu một
+ * exception không khớp handler nào ở đây (vd {@code ResourceNotFoundException},
+ * {@code ConflictException}, lỗi 500 bất kỳ), Spring sẽ tự rơi xuống
+ * {@link com.attendenceSystem.exception.GlobalExceptionHandler} (áp cho mọi
+ * {@code @RestController}) — nên KHÔNG khai báo handler {@code Exception.class} ở đây, tránh
+ * nuốt nhầm những lỗi lẽ ra phải trả 404/409/403 thành 500.
+ */
 @RestControllerAdvice(basePackages = "com.attendenceSystem.module.attendance.api")
 public class AttendanceExceptionHandler {
 
@@ -20,12 +25,5 @@ public class AttendanceExceptionHandler {
     })
     public ResponseEntity<String> handleBadRequest(RuntimeException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> handleUnexpectedError(Exception ex) {
-        log.error("Unexpected error in Attendance API", ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Có lỗi xảy ra, vui lòng thử lại sau");
     }
 }

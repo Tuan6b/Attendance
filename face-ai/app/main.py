@@ -112,16 +112,27 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5000"],
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 trusted_hosts = _csv_setting(settings.trusted_hosts)
-if trusted_hosts:
+if trusted_hosts and "*" not in trusted_hosts:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts)
 app.middleware("http")(security_headers_middleware)
 app.middleware("http")(csrf_protect_middleware)
+
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "service": settings.app_name,
+        "message": "Face AI Attendance Service is running successfully",
+        "docs": "/docs" if settings.public_docs_enabled else "disabled",
+        "health": "/health",
+    }
+
 
 #    app.mount("/static", StaticFiles(directory="web/static"), name="static")
 

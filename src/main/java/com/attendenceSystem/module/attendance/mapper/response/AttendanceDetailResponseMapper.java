@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import com.attendenceSystem.module.attendance.dto.response.AttendanceDetailResponse;
 import com.attendenceSystem.module.attendance.entity.AttendanceRecord;
 import com.attendenceSystem.module.attendance.entity.enums.AttendanceCheckStatus;
+import com.attendenceSystem.module.attendance.entity.enums.WorkingStatus;
 import com.attendenceSystem.module.attendance.util.AttendanceCalculator;
 import com.attendenceSystem.module.storage.provider.StorageProvider;
 
@@ -32,6 +33,7 @@ public class AttendanceDetailResponseMapper {
                 .checkInTime(record.getCheckInTime())
                 .checkOutTime(record.getCheckOutTime())
                 .status(record.getStatus())
+                .workingStatus(WorkingStatus.fromCheckTimes(record.getCheckInTime(), record.getCheckOutTime()))
                 .checkStatuses(checkStatuses)
                 .note(record.getNote())
                 .workingMinutes(attendanceCalculator.workingMinutes(

@@ -127,6 +127,8 @@
                                         <span th:if="${record.status() == 'PRESENT' and record.late()}" class="badge late">Đi muộn</span>
                                         <span th:if="${record.status() == 'PRESENT' and record.earlyLeave()}" class="badge warning">Về sớm</span>
                                         <span th:if="${record.status() == 'PRESENT' and !record.late() and !record.earlyLeave()}" class="badge success">Đúng giờ</span>
+                                        <span th:if="${record.status() == 'PRESENT' and record.workingStatus() == 'WORKING'}" class="badge success">Đang làm việc</span>
+                                        <span th:if="${record.status() == 'PRESENT' and record.workingStatus() == 'CHECKED_OUT'}" class="badge day-off">Không làm việc</span>
                                     </td>
                                     <td th:text="${record.note() != null ? record.note() : '-'}">-</td>
                                     <td>

@@ -32,6 +32,8 @@ build/
 # Ignore runtime and generated artifacts
 venv/
 face-ai/venv/
+.venv/
+face-ai/.venv/
 __pycache__/
 **/__pycache__/
 *.py[cod]

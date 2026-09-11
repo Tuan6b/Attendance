@@ -12,10 +12,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import lombok.RequiredArgsConstructor;
+
+/** Client gọi sang service face-ai (FastAPI, xem face-ai/app/routers/internal_face.py). */
 @Service
+@RequiredArgsConstructor
 public class FaceAiClient {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    // RestTemplate được cấu hình timeout riêng, xem FaceAiRestTemplateConfig — tránh treo vô
+    // thời hạn nếu face-ai không phản hồi.
+    private final RestTemplate restTemplate;
 
     @Value("${face-ai.base-url:http://127.0.0.1:8002}")
     private String baseUrl;
@@ -34,16 +40,19 @@ public class FaceAiClient {
         public List<EmbedResult> results;
     }
 
+    public static class PoseResult {
+        public boolean ok;
+        public String message;
+        public int face_count;
+        public String pose;
+        public Double yaw;
+        public Double pitch;
+        public List<Integer> bbox;
+        public Double face_ratio;
+    }
+
     public EmbedBatchResponse embedBatch(List<String> imagesBase64) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-API-Key", apiKey);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("images_base64", imagesBase64);
-
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-
+        HttpEntity<Map<String, Object>> entity = requestEntity("images_base64", imagesBase64);
         ResponseEntity<EmbedBatchResponse> response = restTemplate.postForEntity(
                 baseUrl + "/api/internal/face/embed-batch",
                 entity,
@@ -53,15 +62,7 @@ public class FaceAiClient {
     }
 
     public EmbedResult embedSingle(String imageBase64) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-API-Key", apiKey);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("image_base64", imageBase64);
-
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-
+        HttpEntity<Map<String, Object>> entity = requestEntity("image_base64", imageBase64);
         ResponseEntity<EmbedResult> response = restTemplate.postForEntity(
                 baseUrl + "/api/internal/face/embed",
                 entity,
@@ -69,32 +70,25 @@ public class FaceAiClient {
         );
         return response.getBody();
     }
-    public static class PoseResult {
-    public boolean ok;
-    public String message;
-    public int face_count;
-    public String pose;
-    public Double yaw;
-    public Double pitch;
-    public List<Integer> bbox;
-    public Double face_ratio;
-}
 
-public PoseResult checkPose(String imageBase64) {
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_JSON);
-    headers.set("X-API-Key", apiKey);
+    public PoseResult checkPose(String imageBase64) {
+        HttpEntity<Map<String, Object>> entity = requestEntity("image_base64", imageBase64);
+        ResponseEntity<PoseResult> response = restTemplate.postForEntity(
+                baseUrl + "/api/internal/face/pose-check",
+                entity,
+                PoseResult.class
+        );
+        return response.getBody();
+    }
 
-    Map<String, Object> body = new HashMap<>();
-    body.put("image_base64", imageBase64);
+    private HttpEntity<Map<String, Object>> requestEntity(String bodyKey, Object bodyValue) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-API-Key", apiKey);
 
-    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        Map<String, Object> body = new HashMap<>();
+        body.put(bodyKey, bodyValue);
 
-    ResponseEntity<PoseResult> response = restTemplate.postForEntity(
-            baseUrl + "/api/internal/face/pose-check",
-            entity,
-            PoseResult.class
-    );
-    return response.getBody();
-}
+        return new HttpEntity<>(body, headers);
+    }
 }

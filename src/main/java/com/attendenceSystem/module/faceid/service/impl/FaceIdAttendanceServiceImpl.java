@@ -151,41 +151,16 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
 
         // 4. Determine action using AttendanceService state query
         FaceIdAction action;
-        AttendanceResponse attendanceResponse = null;
+        AttendanceResponse attendanceResponse;
         String responseMessage;
 
         try {
-            Optional<AttendanceRecord> todayRecord = attendanceService.getTodayAttendanceRecord(user);
+            AttendanceDecision decision = decideCheckInOrOut(user, request.getImageBase64(), false);
+            action = decision.action();
+            attendanceResponse = decision.attendance();
+            responseMessage = decision.message();
 
-            if (todayRecord.isEmpty()) {
-                // Not checked in yet -> CHECKIN
-                attendanceResponse = attendanceActionService.checkIn(user, request.getImageBase64());
-                action = FaceIdAction.CHECKIN;
-                responseMessage = "Checked in successfully";
-            } else if (todayRecord.get().getCheckOutTime() == null) {
-                // Checked in, not checked out -> CHECKOUT
-                attendanceResponse = attendanceActionService.checkOut(user, request.getImageBase64());
-                action = FaceIdAction.CHECKOUT;
-                responseMessage = "Checked out successfully";
-            } else {
-                // Already checked out
-                action = FaceIdAction.IGNORED;
-                responseMessage = "Already checked out today";
-            }
-
-            // Nếu user đang trong ngày nghỉ phép đã duyệt, ghi chú vào attendance record
-            if (action == FaceIdAction.CHECKIN || action == FaceIdAction.CHECKOUT) {
-                LocalDate today = LocalDate.now();
-                List<Long> onLeaveUserIds = leaveRequestRepository.findUserIdsOnLeaveForDate(today, LeaveStatus.APPROVED);
-                if (onLeaveUserIds.contains(user.getId())) {
-                    Optional<AttendanceRecord> updatedRecord = attendanceRecordRepository.findByUserAndAttendanceDate(user, today);
-                    updatedRecord.ifPresent(record -> {
-                        String currentNote = record.getNote() != null ? record.getNote() + "; " : "";
-                        record.setNote(currentNote + "Đi làm trong ngày nghỉ phép");
-                        attendanceRecordRepository.save(record);
-                    });
-                }
-            }
+            appendLeaveNoteIfOnLeave(user, action, "");
 
             log.info("Face ID attendance processed: student={}, action={}", request.getStudentCode(), action);
 
@@ -300,26 +275,16 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
 
         // 3. Xác định check-in/check-out giống hệt luồng AI
         FaceIdAction action;
-        AttendanceResponse attendanceResponse = null;
+        AttendanceResponse attendanceResponse;
         String responseMessage;
 
         try {
-            Optional<AttendanceRecord> todayRecord = attendanceService.getTodayAttendanceRecord(user);
+            AttendanceDecision decision = decideCheckInOrOut(user, request.getImageBase64(), true);
+            action = decision.action();
+            attendanceResponse = decision.attendance();
+            responseMessage = decision.message();
 
-            if (todayRecord.isEmpty()) {
-                attendanceResponse = attendanceActionService.checkIn(user, request.getImageBase64());
-                action = FaceIdAction.CHECKIN;
-                responseMessage = "Điểm danh vào ca thành công (thủ công)";
-            } else if (todayRecord.get().getCheckOutTime() == null) {
-                attendanceResponse = attendanceActionService.checkOut(user, request.getImageBase64());
-                action = FaceIdAction.CHECKOUT;
-                responseMessage = "Điểm danh tan ca thành công (thủ công)";
-            } else {
-                action = FaceIdAction.IGNORED;
-                responseMessage = "Nhân viên đã điểm danh đủ 2 lượt hôm nay";
-            }
-
-            appendManualLeaveNote(user, action);
+            appendLeaveNoteIfOnLeave(user, action, " (điểm danh thủ công)");
 
             log.info("Manual Face ID attendance: employee={}, action={}", request.getEmployeeCode(), action);
 
@@ -336,7 +301,37 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
         return buildManualResponseAndLog(request, action, responseMessage, trackingId, timestamp, attendanceResponse);
     }
 
-    private void appendManualLeaveNote(User user, FaceIdAction action) {
+    /**
+     * Logic check-in/check-out dùng chung cho cả luồng AI ({@link #processAttendance}) và
+     * luồng thủ công ({@link #processManualAttendance}) — trước đây 2 hàm này lặp lại gần như
+     * y hệt khối if/else xác định CHECKIN/CHECKOUT/IGNORED.
+     */
+    private record AttendanceDecision(FaceIdAction action, String message, AttendanceResponse attendance) {
+    }
+
+    private AttendanceDecision decideCheckInOrOut(User user, String imageBase64, boolean manual) {
+        Optional<AttendanceRecord> todayRecord = attendanceService.getTodayAttendanceRecord(user);
+
+        if (todayRecord.isEmpty()) {
+            AttendanceResponse response = attendanceActionService.checkIn(user, imageBase64);
+            String message = manual ? "Điểm danh vào ca thành công (thủ công)" : "Checked in successfully";
+            return new AttendanceDecision(FaceIdAction.CHECKIN, message, response);
+        }
+        if (todayRecord.get().getCheckOutTime() == null) {
+            AttendanceResponse response = attendanceActionService.checkOut(user, imageBase64);
+            String message = manual ? "Điểm danh tan ca thành công (thủ công)" : "Checked out successfully";
+            return new AttendanceDecision(FaceIdAction.CHECKOUT, message, response);
+        }
+        String message = manual ? "Nhân viên đã điểm danh đủ 2 lượt hôm nay" : "Already checked out today";
+        return new AttendanceDecision(FaceIdAction.IGNORED, message, null);
+    }
+
+    /**
+     * Nếu user đang trong ngày nghỉ phép đã duyệt, ghi chú vào attendance record. Cố tình tự
+     * bắt lỗi và chỉ log warn — một checkin/checkout đã thành công không nên bị báo FAILED chỉ
+     * vì bước ghi chú phụ này lỗi.
+     */
+    private void appendLeaveNoteIfOnLeave(User user, FaceIdAction action, String noteSuffix) {
         if (action != FaceIdAction.CHECKIN && action != FaceIdAction.CHECKOUT) {
             return;
         }
@@ -351,11 +346,11 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             Optional<AttendanceRecord> updatedRecord = attendanceRecordRepository.findByUserAndAttendanceDate(user, today);
             updatedRecord.ifPresent(record -> {
                 String currentNote = record.getNote() != null ? record.getNote() + "; " : "";
-                record.setNote(currentNote + "Đi làm trong ngày nghỉ phép (điểm danh thủ công)");
+                record.setNote(currentNote + "Đi làm trong ngày nghỉ phép" + noteSuffix);
                 attendanceRecordRepository.save(record);
             });
         } catch (RuntimeException e) {
-            log.warn("Không thể ghi chú ngày nghỉ cho điểm danh thủ công của {}", user.getUsername(), e);
+            log.warn("Không thể ghi chú ngày nghỉ cho user {}", user.getUsername(), e);
         }
     }
 

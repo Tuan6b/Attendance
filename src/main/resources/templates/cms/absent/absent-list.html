@@ -151,20 +151,14 @@
                                         <!-- Cột Hành động (Phê duyệt / Từ chối) -->
                                         <td>
                                             <div class="action-group" th:if="${leave.status == 'PENDING'}">
-                                                <form th:action="@{'/attendance/leave/accept/' + ${leave.id}}"
-                                                    method="post" style="display:inline;">
-                                                    <button class="btn-primary btn-small" type="submit"
-                                                        onclick="return confirm('Bạn có chắc phê duyệt đơn nghỉ phép này?')">
-                                                        Phê duyệt
-                                                    </button>
-                                                </form>
-                                                <form th:action="@{'/attendance/leave/reject/' + ${leave.id}}"
-                                                    method="post" style="display:inline;">
-                                                    <button class="btn-secondary btn-small" type="submit"
-                                                        onclick="return confirm('Bạn có chắc từ chối đơn nghỉ phép này?')">
-                                                        Từ chối
-                                                    </button>
-                                                </form>
+                                                <button th:data-id="${leave.id}" class="btn-primary btn-small btn-accept-leave"
+                                                    type="button">
+                                                    Phê duyệt
+                                                </button>
+                                                <button th:data-id="${leave.id}" class="btn-secondary btn-small btn-reject-leave"
+                                                    type="button">
+                                                    Từ chối
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -335,6 +329,37 @@
                     console.error(error);
                     alert(error.message || 'Có lỗi xảy ra, vui lòng thử lại');
                 }
+            });
+        });
+
+        async function submitLeaveDecision(button, action, confirmMessage) {
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            const leaveId = button.getAttribute('data-id');
+            try {
+                const response = await fetch('/api/attendance/manager/leave/' + action + '/' + leaveId, {
+                    method: 'POST',
+                });
+                if (!response.ok) {
+                    throw new Error(await response.text() || 'Có lỗi xảy ra, vui lòng thử lại');
+                }
+                location.reload();
+            } catch (error) {
+                console.error(error);
+                alert(error.message || 'Có lỗi xảy ra, vui lòng thử lại');
+            }
+        }
+
+        document.querySelectorAll('.btn-accept-leave').forEach(button => {
+            button.addEventListener('click', function () {
+                submitLeaveDecision(this, 'accept', 'Bạn có chắc phê duyệt đơn nghỉ phép này?');
+            });
+        });
+
+        document.querySelectorAll('.btn-reject-leave').forEach(button => {
+            button.addEventListener('click', function () {
+                submitLeaveDecision(this, 'reject', 'Bạn có chắc từ chối đơn nghỉ phép này?');
             });
         });
     </script>

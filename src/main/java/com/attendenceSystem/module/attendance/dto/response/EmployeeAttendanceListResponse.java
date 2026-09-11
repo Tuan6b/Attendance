@@ -15,6 +15,7 @@ public record EmployeeAttendanceListResponse(
                 LocalDateTime checkInTime,
                 LocalDateTime checkOutTime,
                 String status,
+                String workingStatus,
                 Set<AttendanceCheckStatus> checkStatuses,
                 boolean late,
                 boolean earlyLeave,

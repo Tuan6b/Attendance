@@ -1,0 +1,50 @@
+services:
+  face-ai:
+    build:
+      context: ./face-ai
+      dockerfile: Dockerfile
+    container_name: attendance-face-ai
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./face-ai/data:/app/data
+      - insightface-models:/root/.insightface
+    env_file:
+      - ./face-ai/.env
+    restart: unless-stopped
+
+  # Database PostgreSQL (neu muon deploy toan bo he thong)
+  postgres:
+    image: postgres:16-alpine
+    container_name: attendance-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: attendance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # Backend Spring Boot
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: attendance-backend
+    ports:
+      - "9090:9090"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/attendance
+      DB_USERNAME: postgres
+      DB_PASSWORD: password
+      FACE_AI_BASE_URL: http://face-ai:8002
+    depends_on:
+      - postgres
+      - face-ai
+    restart: unless-stopped
+
+volumes:
+  insightface-models:
+  postgres-data:

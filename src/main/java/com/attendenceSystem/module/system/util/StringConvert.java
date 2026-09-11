@@ -6,6 +6,8 @@ import java.time.format.DateTimeFormatter;
 
 import org.springframework.util.StringUtils;
 
+import com.attendenceSystem.exception.custom.BadRequestException;
+
 import lombok.experimental.UtilityClass;
 
 @UtilityClass
@@ -23,7 +25,7 @@ public class StringConvert {
         try {
             return LocalTime.parse(time.trim(), TIME_FORMATTER);
         } catch (DateTimeException e) {
-            throw new IllegalArgumentException("Invalid time format (expected HH:mm): " + time, e);
+            throw new BadRequestException("Invalid time format (expected HH:mm): " + time, e);
         }
     }
 
@@ -47,13 +49,13 @@ public class StringConvert {
                     hour = Integer.parseInt(parts[1]);
                     break;
                 default:
-                    throw new IllegalArgumentException("Invalid cron expression: " + cron);
+                    throw new BadRequestException("Invalid cron expression: " + cron);
             }
 
             return LocalTime.of(hour, minute);
 
         } catch (NumberFormatException | DateTimeException e) {
-            throw new IllegalArgumentException("Invalid time format in cron expression: " + cron, e);
+            throw new BadRequestException("Invalid time format in cron expression: " + cron, e);
         }
     }
 
