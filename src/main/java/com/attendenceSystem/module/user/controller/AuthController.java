@@ -11,10 +11,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import com.attendenceSystem.constant.Routes;
 import com.attendenceSystem.constant.Views;
+import com.attendenceSystem.exception.custom.ConflictException;
+import com.attendenceSystem.exception.custom.ResourceNotFoundException;
+import com.attendenceSystem.module.otp.entity.enums.OtpPurpose;
 import com.attendenceSystem.module.user.dto.request.LoginRequest;
 import com.attendenceSystem.module.user.dto.request.RegisterRequest;
 import com.attendenceSystem.module.user.dto.request.UpdatePasswordWithOtpRequest;
 import com.attendenceSystem.module.user.dto.response.UserResponse;
+import com.attendenceSystem.module.user.exception.EmailNotVerifiedException;
 import com.attendenceSystem.module.user.service.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,7 +56,18 @@ public class AuthController {
     }
 
     @GetMapping(Routes.Auth.VERIFY_OTP)
-    public String toVerifyOtpPage() {
+    public String toVerifyOtpPage(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false, defaultValue = "FORGOT_PASSWORD") String purpose,
+            Model model) {
+        // email/purpose thường đến từ flash attribute (redirect từ register/forgotPassword/login);
+        // chỉ dùng query param làm phương án dự phòng khi truy cập/tải lại trang trực tiếp.
+        if (!model.containsAttribute("email") && email != null) {
+            model.addAttribute("email", email);
+        }
+        if (!model.containsAttribute("purpose")) {
+            model.addAttribute("purpose", purpose);
+        }
         return Views.Auth.VERIFY_OTP;
     }
 
@@ -69,7 +84,8 @@ public class AuthController {
             @Valid @ModelAttribute LoginRequest request,
             BindingResult result,
             Model model,
-            HttpServletRequest req) {
+            HttpServletRequest req,
+            RedirectAttributes redirectAttributes) {
         if (result.hasErrors()) {
             return Views.Auth.LOGIN;
         }
@@ -84,6 +100,12 @@ public class AuthController {
                 case "EMPLOYEE" -> Routes.REDIRECT + Routes.Dashboard.ROOT + Routes.Role.EMPLOYEE;
                 default -> Routes.REDIRECT + Routes.Dashboard.ROOT;
             };
+        } catch (EmailNotVerifiedException e) {
+            redirectAttributes.addFlashAttribute("errorMessage",
+                    "Tài khoản chưa xác thực email. Vui lòng nhập mã OTP đã gửi tới email của bạn.");
+            redirectAttributes.addFlashAttribute("email", e.getEmail());
+            redirectAttributes.addFlashAttribute("purpose", OtpPurpose.REGISTER.name());
+            return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.VERIFY_OTP;
         } catch (DisabledException e) {
             model.addAttribute("errorMessage", e.getMessage());
             return Views.Auth.LOGIN;
@@ -104,9 +126,12 @@ public class AuthController {
         }
         try {
             authService.register(request);
-            redirectAttributes.addFlashAttribute("successMessage", "Đăng kí thành công");
-            return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.LOGIN;
-        } catch (IllegalArgumentException e) {
+            redirectAttributes.addFlashAttribute("successMessage",
+                    "Đăng ký thành công. Vui lòng nhập mã OTP đã gửi tới email để xác thực tài khoản.");
+            redirectAttributes.addFlashAttribute("email", request.getEmail());
+            redirectAttributes.addFlashAttribute("purpose", OtpPurpose.REGISTER.name());
+            return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.VERIFY_OTP;
+        } catch (IllegalArgumentException | ConflictException e) {
             request.setPassword("");
             request.setRePassword("");
             model.addAttribute("errorMessage", e.getMessage());
@@ -132,7 +157,7 @@ public class AuthController {
                     "Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra email.");
             redirectAttributes.addFlashAttribute("email", email);
             return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.VERIFY_OTP;
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | ResourceNotFoundException e) {
             redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
             return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.FORGOT_PASSWORD;
         }
@@ -142,34 +167,56 @@ public class AuthController {
     public String verifyOtp(
             @RequestParam(value = "email", required = false) String email,
             @RequestParam("otp") String otpCode,
+            @RequestParam(value = "purpose", required = false, defaultValue = "FORGOT_PASSWORD") String purpose,
             HttpServletRequest request,
             Model model,
             RedirectAttributes redirectAttributes) {
+        OtpPurpose parsedPurpose = tryParsePurpose(purpose);
+        OtpPurpose otpPurpose = parsedPurpose != null ? parsedPurpose : OtpPurpose.FORGOT_PASSWORD;
+
         if (email == null || email.trim().isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã OTP mới.");
-            return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.FORGOT_PASSWORD;
+            return otpPurpose == OtpPurpose.REGISTER
+                    ? Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.REGISTER
+                    : Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.FORGOT_PASSWORD;
         }
         try {
-            boolean isValid = authService.verifyOtp(email, otpCode);
-            if (isValid) {
-                // Store OTP verified flag in session để dùng cho POST update-password
-                HttpSession session = request.getSession();
-                session.setAttribute("otpVerified", true);
-                session.setAttribute("otpEmail", email);
-
-                redirectAttributes.addFlashAttribute("email", email);
-                redirectAttributes.addFlashAttribute("otpVerified", true);
-                return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.CHANGE_PASSWORD + "?email=" + email;
-            } else {
+            boolean isValid = authService.verifyOtp(email, otpCode, otpPurpose);
+            if (!isValid) {
                 model.addAttribute("errorMessage", "Mã OTP không chính xác hoặc đã hết hạn.");
                 model.addAttribute("email", email);
+                model.addAttribute("purpose", purpose);
                 return Views.Auth.VERIFY_OTP;
             }
+
+            if (otpPurpose == OtpPurpose.REGISTER) {
+                redirectAttributes.addFlashAttribute("successMessage",
+                        "Xác thực email thành công. Bạn có thể đăng nhập ngay bây giờ.");
+                return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.LOGIN;
+            }
+
+            // Store OTP verified flag in session để dùng cho POST update-password
+            HttpSession session = request.getSession();
+            session.setAttribute("otpVerified", true);
+            session.setAttribute("otpEmail", email);
+
+            redirectAttributes.addFlashAttribute("email", email);
+            redirectAttributes.addFlashAttribute("otpVerified", true);
+            return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.CHANGE_PASSWORD + "?email=" + email;
         } catch (Exception e) {
             model.addAttribute("errorMessage", e.getMessage());
             model.addAttribute("email", email);
+            model.addAttribute("purpose", purpose);
             return Views.Auth.VERIFY_OTP;
+        }
+    }
+
+    private OtpPurpose tryParsePurpose(final String purpose) {
+        try {
+            return OtpPurpose.valueOf(purpose);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return null;
         }
     }
 

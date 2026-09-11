@@ -1,9 +1,13 @@
 package com.attendenceSystem.module.otp.service.impl;
 
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.attendenceSystem.module.otp.dto.request.SendOtpRequest;
 import com.attendenceSystem.module.otp.dto.request.VerifyOtpRequest;
@@ -28,12 +32,24 @@ public class OtpServiceImpl implements OtpService {
     private final OtpSender otpSender;
 
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final long RESEND_COOLDOWN_SECONDS = 90;
 
     @Transactional
     @Override
     public OtpResponse send(final SendOtpRequest request) {
+        otpRepository.findTopByDestinationAndPurposeOrderByCreatedAtDesc(
+                request.getDestination(), request.getPurpose())
+                .ifPresent(last -> {
+                    long elapsed = Duration.between(last.getCreatedAt(), LocalDateTime.now()).getSeconds();
+                    if (elapsed < RESEND_COOLDOWN_SECONDS) {
+                        long remaining = RESEND_COOLDOWN_SECONDS - elapsed;
+                        throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                                "Vui lòng đợi " + remaining + " giây trước khi gửi lại mã OTP.");
+                    }
+                });
+
         invalidate(request.getDestination(), request.getPurpose());
-        
+
         String code = generateOtpCode();
         
         Otp otp = SendOtpRequestMapper.toEntity(request, code);

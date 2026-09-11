@@ -9,6 +9,8 @@ import com.attendenceSystem.config.SystemConfig;
 import com.attendenceSystem.module.system.entity.SystemSetting;
 import com.attendenceSystem.module.system.service.DynamicMailService;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +42,18 @@ public class DynamicMailServiceImpl implements DynamicMailService{
     @Override
     public MimeMessage createMimeMessage() {
         JavaMailSenderImpl mailSender = buildMailSender();
-        return mailSender.createMimeMessage();
+        MimeMessage message = mailSender.createMimeMessage();
+        // QUAN TRỌNG: nếu không set From tường minh, JavaMail tự điền
+        // "<user hệ điều hành>@<hostname máy chạy app>" (vd ASUS@LAPTOP-XXXX) làm From —
+        // domain đó không tồn tại nên mail bị Gmail âm thầm chặn/vào spam dù SMTP báo "250 OK"
+        // (SMTP chỉ xác nhận server nhận để relay, không đảm bảo tới được hộp thư đích).
+        try {
+            message.setFrom(new InternetAddress(mailSender.getUsername()));
+        } catch (MessagingException e) {
+            throw new IllegalStateException(
+                    "Địa chỉ email hệ thống không hợp lệ: " + mailSender.getUsername(), e);
+        }
+        return message;
     }
 
     private JavaMailSenderImpl buildMailSender() {

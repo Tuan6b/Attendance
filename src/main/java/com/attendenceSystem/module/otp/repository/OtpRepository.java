@@ -18,6 +18,9 @@ public interface OtpRepository extends JpaRepository<Otp, Long> {
     Optional<Otp> findTopByDestinationAndPurposeAndUsedFalseOrderByCreatedAtDesc(
             String destination, OtpPurpose purpose);
 
+    Optional<Otp> findTopByDestinationAndPurposeOrderByCreatedAtDesc(
+            String destination, OtpPurpose purpose);
+
     @Modifying
     @Query("UPDATE Otp o SET o.used = true WHERE o.destination = :destination AND o.purpose = :purpose")
     void invalidateByDestinationAndPurpose(

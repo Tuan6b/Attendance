@@ -63,4 +63,13 @@ public class User {
     @Column(name = "must_change_password", nullable = false)
     @Builder.Default
     private boolean mustChangePassword = false;
+    /**
+     * Đã xác thực email bằng OTP chưa. Với tài khoản tự đăng ký, đây là điều kiện DUY NHẤT để
+     * kích hoạt (xác thực OTP thành công thì {@link #status} tự chuyển ACTIVE luôn — xem
+     * {@code AuthServiceImpl.verifyOtp}, không còn bước admin duyệt tay). Mặc định true để
+     * không khoá các tài khoản có sẵn (tạo trước khi tính năng này tồn tại).
+     */
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private boolean emailVerified = true;
 }

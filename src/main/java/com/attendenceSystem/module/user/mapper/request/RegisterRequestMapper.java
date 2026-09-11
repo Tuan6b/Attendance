@@ -21,6 +21,7 @@ public final class RegisterRequestMapper {
                 .role(Role.EMPLOYEE)
                 .status(Status.PENDING)
                 .mustChangePassword(false)
+                .emailVerified(false)
                 .build();
     }
 }

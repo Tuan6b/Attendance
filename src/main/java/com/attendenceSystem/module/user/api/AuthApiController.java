@@ -46,7 +46,7 @@ public class AuthApiController {
     }
     @PostMapping(Routes.Auth.VERIFY_OTP)
     public ResponseEntity<Boolean> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
-        boolean isValid = authService.verifyOtp(request.getDestination(), request.getCode());
+        boolean isValid = authService.verifyOtp(request.getDestination(), request.getCode(), request.getPurpose());
         return ResponseEntity.ok(isValid);
     }
     

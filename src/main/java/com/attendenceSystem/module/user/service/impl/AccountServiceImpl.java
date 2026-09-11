@@ -2,9 +2,13 @@ package com.attendenceSystem.module.user.service.impl;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.attendenceSystem.exception.custom.BadRequestException;
+import com.attendenceSystem.exception.custom.ConflictException;
+import com.attendenceSystem.exception.custom.ResourceNotFoundException;
 import com.attendenceSystem.module.user.dto.response.AdminAccountManageListResponse;
 import com.attendenceSystem.module.user.dto.response.ManagerAccountManageListResponse;
 import com.attendenceSystem.module.user.dto.response.UserResponse;
@@ -52,7 +56,7 @@ public class AccountServiceImpl implements AccountService {
         User user = findById(id);
         validateAdminAction(user);
         if (user.getStatus() == Status.INACTIVE) {
-            throw new IllegalStateException("Tài khoản đã bị khóa");
+            throw new ConflictException("Tài khoản đã bị khóa");
         }
         user.setStatus(Status.INACTIVE);
         userRepository.save(user);
@@ -64,7 +68,7 @@ public class AccountServiceImpl implements AccountService {
         User user = findById(id);
         validateAdminAction(user);
         if (user.getStatus() == Status.ACTIVE) {
-            throw new IllegalStateException("Tài khoản chưa bị khóa");
+            throw new ConflictException("Tài khoản chưa bị khóa");
         }
         user.setStatus(Status.ACTIVE);
         userRepository.save(user);
@@ -81,20 +85,20 @@ public class AccountServiceImpl implements AccountService {
         }
         Role currentUserRole = SecurityUtil.getCurrentUserRole();
         if (currentUserRole != Role.MANAGER && currentUserRole != Role.ADMIN) {
-            throw new IllegalStateException("Bạn không có quyền thực hiện hành động này");
+            throw new AccessDeniedException("Bạn không có quyền thực hiện hành động này");
         }
-        
+
         // Chỉ thao tác trên employee
         if (user.getRole() != Role.EMPLOYEE) {
-            throw new IllegalStateException("Chỉ có thể chuyển phòng cho nhân viên");
+            throw new BadRequestException("Chỉ có thể chuyển phòng cho nhân viên");
         }
-        
+
         Department department = null;
         if (departmentCode != null && !departmentCode.isBlank()) {
             try {
                 department = Department.valueOf(departmentCode);
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Mã phòng không hợp lệ: " + departmentCode);
+                throw new BadRequestException("Mã phòng không hợp lệ: " + departmentCode);
             }
         }
         
@@ -110,12 +114,12 @@ public class AccountServiceImpl implements AccountService {
 
         // Không cho đổi thành ADMIN
         if (newRole == Role.ADMIN) {
-            throw new IllegalStateException("Không thể đổi quyền thành ADMIN");
+            throw new BadRequestException("Không thể đổi quyền thành ADMIN");
         }
 
         // Không cho đổi role của admin
         if (user.getRole() == Role.ADMIN) {
-            throw new IllegalStateException("Không thể đổi quyền của admin");
+            throw new BadRequestException("Không thể đổi quyền của admin");
         }
 
         user.setRole(newRole);
@@ -124,7 +128,7 @@ public class AccountServiceImpl implements AccountService {
 
     private User findById(final Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng với id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với id: " + id));
     }
 
     private void validateAdminAction(final User targetUser) {
@@ -137,17 +141,17 @@ public class AccountServiceImpl implements AccountService {
 
         // 1. Chỉ ADMIN mới có quyền deactivate/activate tài khoản
         if (currentUserRole != Role.ADMIN) {
-            throw new IllegalStateException("Bạn không có quyền thực hiện hành động này");
+            throw new AccessDeniedException("Bạn không có quyền thực hiện hành động này");
         }
 
         // 2. Check không tự tác động lên chính mình
         if (targetUser.getUsername().equals(currentUsername)) {
-            throw new IllegalStateException("Không thể thay đổi tài khoản của chính mình");
+            throw new BadRequestException("Không thể thay đổi tài khoản của chính mình");
         }
 
         // 3. Check Admin không được đụng Admin khác
         if (targetUser.getRole() == Role.ADMIN) {
-            throw new IllegalStateException("Không thể tác động tài khoản admin khác");
+            throw new BadRequestException("Không thể tác động tài khoản admin khác");
         }
     }
 }

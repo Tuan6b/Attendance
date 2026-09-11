@@ -1,5 +1,7 @@
 package com.attendenceSystem.module.user.service.impl;
 
+import com.attendenceSystem.exception.custom.ConflictException;
+import com.attendenceSystem.exception.custom.ResourceNotFoundException;
 import com.attendenceSystem.module.user.mapper.request.RegisterRequestMapper;
 import com.attendenceSystem.module.user.mapper.response.UserResponseMapper;
 import java.util.Optional;
@@ -26,6 +28,7 @@ import com.attendenceSystem.module.user.dto.request.RegisterRequest;
 import com.attendenceSystem.module.user.dto.response.UserResponse;
 import com.attendenceSystem.module.user.entity.User;
 import com.attendenceSystem.module.user.entity.enums.Status;
+import com.attendenceSystem.module.user.exception.EmailNotVerifiedException;
 import com.attendenceSystem.module.user.repository.UserRepository;
 import com.attendenceSystem.module.user.service.AuthService;
 
@@ -46,14 +49,19 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void register(final RegisterRequest request) {
         if (existsByKeyword(request.getUsername())) {
-            throw new IllegalArgumentException("Tên đăng nhập đã tồn tại!");
+            throw new ConflictException("Tên đăng nhập đã tồn tại!");
         }
         if (existsByKeyword(request.getEmail())) {
-            throw new IllegalArgumentException("Email này đã được đăng ký!");
+            throw new ConflictException("Email này đã được đăng ký!");
         }
         String hashPassword = passwordEncoder.encode(request.getPassword());
         User savedUser = RegisterRequestMapper.toEntity(request, hashPassword);
         userRepository.save(savedUser);
+
+        otpService.send(SendOtpRequest.builder()
+                .destination(savedUser.getEmail())
+                .purpose(OtpPurpose.REGISTER)
+                .build());
     }
 
     @Override
@@ -72,6 +80,14 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     @Override
     public UserResponse login(final LoginRequest request) {
+        // Xác thực email (OTP lúc đăng ký) là điều kiện độc lập, kiểm tra trước cả khi thử xác
+        // thực mật khẩu — tài khoản chưa xác thực luôn bị chặn dù mật khẩu đúng hay sai, và
+        // dù trạng thái duyệt (status) là gì.
+        findUser(request.getLogin())
+                .filter(user -> !user.isEmailVerified())
+                .ifPresent(user -> {
+                    throw new EmailNotVerifiedException(user.getEmail());
+                });
 
         Authentication authentication;
         try {
@@ -101,7 +117,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public void forgotPassword(final String email) {
         User user = findUser(email)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng với email: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
 
         SendOtpRequest request = SendOtpRequest.builder()
                 .destination(user.getEmail())
@@ -111,16 +127,32 @@ public class AuthServiceImpl implements AuthService {
         otpService.send(request);
     }
 
+    @Transactional
     @Override
-    public boolean verifyOtp(final String destination, final String code) {
+    public boolean verifyOtp(final String destination, final String code, final OtpPurpose purpose) {
         try {
             VerifyOtpRequest request = VerifyOtpRequest.builder()
                     .destination(destination)
                     .code(code)
-                    .purpose(OtpPurpose.FORGOT_PASSWORD)
+                    .purpose(purpose)
                     .build();
 
             otpService.verify(request);
+
+            if (purpose == OtpPurpose.REGISTER) {
+                // Xác thực OTP là điều kiện duy nhất để kích hoạt tài khoản tự đăng ký — bỏ
+                // bước admin phải bấm "mở khóa" thủ công (nút đó vốn dùng chung cho cả việc
+                // mở khóa tài khoản bị khóa, không phải một quy trình duyệt riêng — xem trao
+                // đổi trước). Admin vẫn khoá/mở khoá được bình thường sau này nếu cần.
+                findUser(destination).ifPresent(user -> {
+                    user.setEmailVerified(true);
+                    if (user.getStatus() == Status.PENDING) {
+                        user.setStatus(Status.ACTIVE);
+                    }
+                    userRepository.save(user);
+                });
+            }
+
             return true;
         } catch (Exception e) {
             return false;

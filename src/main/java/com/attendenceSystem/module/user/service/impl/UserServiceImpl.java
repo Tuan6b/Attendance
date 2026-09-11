@@ -37,11 +37,11 @@ public class UserServiceImpl implements UserService {
     public void changePassword(final ChangePasswordRequest request) {
         User currentUser = userContextProvider.getCurrentUserEntity();
         if (!passwordEncoder.matches(request.getOldPassword(), currentUser.getPassword())) {
-            throw new IllegalArgumentException("Mật khẩu cũ không đúng");
+            throw new BadRequestException("Mật khẩu cũ không đúng");
         }
 
         if (!request.getRequest().getPassword().equals(request.getRequest().getConfirmPassword())) {
-            throw new IllegalArgumentException("Mật khẩu xác nhận không khớp");
+            throw new BadRequestException("Mật khẩu xác nhận không khớp");
         }
         updatePassword(currentUser, request.getRequest());
     }
