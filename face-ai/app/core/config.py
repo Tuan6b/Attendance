@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     session_max_age_seconds: int = 8 * 60 * 60
     https_enabled: bool = False
     trusted_hosts: str = "127.0.0.1,localhost,testserver"
+    cors_allowed_origins: str = "http://127.0.0.1:8002,http://localhost:8002,http://localhost:5000"
     public_docs_enabled: bool = False
     health_details_enabled: bool = False
     password_pbkdf2_iterations: int = 600_000

@@ -112,7 +112,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=".*",
+    # KHÔNG dùng allow_origin_regex=".*" (hay allow_origins=["*"]) chung với
+    # allow_credentials=True — combo đó cho phép BẤT KỲ website nào gọi API kèm cookie
+    # session_token của người dùng đang đăng nhập (CORS credentialed request từ site lạ).
+    # Dùng allowlist tường minh, cấu hình được qua CORS_ALLOWED_ORIGINS trong .env.
+    allow_origins=_csv_setting(settings.cors_allowed_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

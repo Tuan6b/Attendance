@@ -18,11 +18,15 @@ services:
     image: postgres:16-alpine
     container_name: attendance-postgres
     ports:
-      - "5432:5432"
+      # Chỉ bind localhost — Postgres không cần lộ ra ngoài LAN, backend nối qua network
+      # nội bộ của compose (hostname "postgres") chứ không qua cổng publish này.
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: attendance
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      # Đọc từ .env cùng thư mục (docker compose tự nạp) — KHÔNG hardcode mật khẩu vào file
+      # này vì file này được commit vào git.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Thiếu POSTGRES_PASSWORD trong .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -38,7 +42,7 @@ services:
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/attendance
       DB_USERNAME: postgres
-      DB_PASSWORD: password
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Thiếu POSTGRES_PASSWORD trong .env}
       FACE_AI_BASE_URL: http://face-ai:8002
     depends_on:
       - postgres

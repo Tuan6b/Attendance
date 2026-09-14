@@ -1,5 +1,6 @@
 package com.attendenceSystem.module.user.controller;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,7 +14,9 @@ import com.attendenceSystem.constant.Routes;
 import com.attendenceSystem.constant.Views;
 import com.attendenceSystem.exception.custom.ConflictException;
 import com.attendenceSystem.exception.custom.ResourceNotFoundException;
+import com.attendenceSystem.module.otp.dto.request.SendOtpRequest;
 import com.attendenceSystem.module.otp.entity.enums.OtpPurpose;
+import com.attendenceSystem.module.otp.service.OtpService;
 import com.attendenceSystem.module.user.dto.request.LoginRequest;
 import com.attendenceSystem.module.user.dto.request.RegisterRequest;
 import com.attendenceSystem.module.user.dto.request.UpdatePasswordWithOtpRequest;
@@ -31,12 +34,19 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.server.ResponseStatusException;
 
 @Controller
 @RequestMapping(Routes.Auth.ROOT)
 @RequiredArgsConstructor
 public class AuthController {
+    // Email thật của tài khoản "login trước, phát hiện chưa xác thực" chỉ nằm ở session
+    // server-side — KHÔNG bao giờ đưa vào flash/model/hidden field cho case này, để tránh
+    // lộ email thật của người khác cho ai đó chỉ mới đoán đúng username (xem login()).
+    private static final String SESSION_PENDING_VERIFY_EMAIL = "pendingVerifyEmail";
+
     private final AuthService authService;
+    private final OtpService otpService;
 
     @GetMapping(Routes.Auth.LOGIN)
     public String toLoginPage(Model model) {
@@ -59,11 +69,20 @@ public class AuthController {
     public String toVerifyOtpPage(
             @RequestParam(required = false) String email,
             @RequestParam(required = false, defaultValue = "FORGOT_PASSWORD") String purpose,
+            HttpServletRequest request,
             Model model) {
-        // email/purpose thường đến từ flash attribute (redirect từ register/forgotPassword/login);
+        // email/purpose thường đến từ flash attribute (redirect từ register/forgotPassword);
         // chỉ dùng query param làm phương án dự phòng khi truy cập/tải lại trang trực tiếp.
         if (!model.containsAttribute("email") && email != null) {
             model.addAttribute("email", email);
+        }
+        if (!model.containsAttribute("email")) {
+            // Tới từ login() phát hiện chưa xác thực: email thật chỉ nằm trong session,
+            // không đưa vào model/HTML — trang chỉ biết "có một email đang chờ xác thực".
+            HttpSession session = request.getSession(false);
+            if (session != null && session.getAttribute(SESSION_PENDING_VERIFY_EMAIL) != null) {
+                model.addAttribute("emailPending", true);
+            }
         }
         if (!model.containsAttribute("purpose")) {
             model.addAttribute("purpose", purpose);
@@ -101,9 +120,12 @@ public class AuthController {
                 default -> Routes.REDIRECT + Routes.Dashboard.ROOT;
             };
         } catch (EmailNotVerifiedException e) {
+            // Không flash email thật ra ngoài: ai đó chỉ cần gõ đúng username (chưa cần biết
+            // mật khẩu) không nên dò ra được email thật gắn với tài khoản đó. Giữ email ở
+            // session server-side; verifyOtp()/resendPendingOtp() tự đọc lại từ đó.
+            req.getSession(true).setAttribute(SESSION_PENDING_VERIFY_EMAIL, e.getEmail());
             redirectAttributes.addFlashAttribute("errorMessage",
-                    "Tài khoản chưa xác thực email. Vui lòng nhập mã OTP đã gửi tới email của bạn.");
-            redirectAttributes.addFlashAttribute("email", e.getEmail());
+                    "Tài khoản chưa xác thực email. Vui lòng nhập mã OTP đã gửi tới email đã đăng ký.");
             redirectAttributes.addFlashAttribute("purpose", OtpPurpose.REGISTER.name());
             return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.VERIFY_OTP;
         } catch (DisabledException e) {
@@ -174,6 +196,16 @@ public class AuthController {
         OtpPurpose parsedPurpose = tryParsePurpose(purpose);
         OtpPurpose otpPurpose = parsedPurpose != null ? parsedPurpose : OtpPurpose.FORGOT_PASSWORD;
 
+        HttpSession existingSession = request.getSession(false);
+        boolean emailFromSession = false;
+        if ((email == null || email.trim().isEmpty()) && existingSession != null) {
+            Object pending = existingSession.getAttribute(SESSION_PENDING_VERIFY_EMAIL);
+            if (pending != null) {
+                email = pending.toString();
+                emailFromSession = true;
+            }
+        }
+
         if (email == null || email.trim().isEmpty()) {
             redirectAttributes.addFlashAttribute("errorMessage",
                     "Phiên làm việc không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã OTP mới.");
@@ -185,9 +217,17 @@ public class AuthController {
             boolean isValid = authService.verifyOtp(email, otpCode, otpPurpose);
             if (!isValid) {
                 model.addAttribute("errorMessage", "Mã OTP không chính xác hoặc đã hết hạn.");
-                model.addAttribute("email", email);
+                if (emailFromSession) {
+                    model.addAttribute("emailPending", true);
+                } else {
+                    model.addAttribute("email", email);
+                }
                 model.addAttribute("purpose", purpose);
                 return Views.Auth.VERIFY_OTP;
+            }
+
+            if (emailFromSession) {
+                existingSession.removeAttribute(SESSION_PENDING_VERIFY_EMAIL);
             }
 
             if (otpPurpose == OtpPurpose.REGISTER) {
@@ -206,9 +246,39 @@ public class AuthController {
             return Routes.REDIRECT + Routes.Auth.ROOT + Routes.Auth.CHANGE_PASSWORD + "?email=" + email;
         } catch (Exception e) {
             model.addAttribute("errorMessage", e.getMessage());
-            model.addAttribute("email", email);
+            if (emailFromSession) {
+                model.addAttribute("emailPending", true);
+            } else {
+                model.addAttribute("email", email);
+            }
             model.addAttribute("purpose", purpose);
             return Views.Auth.VERIFY_OTP;
+        }
+    }
+
+    /**
+     * Gửi lại OTP cho case "login phát hiện chưa xác thực" — email không có ở phía client
+     * (xem {@link #login}), nên nút "Gửi lại mã" gọi endpoint này (không cần body) thay vì
+     * {@code POST /api/otp/send} thông thường.
+     */
+    @PostMapping(Routes.Auth.VERIFY_OTP + "/resend-pending")
+    public ResponseEntity<String> resendPendingOtp(final HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        Object pending = session != null ? session.getAttribute(SESSION_PENDING_VERIFY_EMAIL) : null;
+        if (pending == null) {
+            return ResponseEntity.badRequest().body("Phiên làm việc đã hết hạn, vui lòng đăng nhập lại.");
+        }
+        // AuthController là @Controller (trang MVC), không phải @RestController, nên
+        // GlobalMvcExceptionHandler (trả về view name) mới là advice áp dụng cho lớp này —
+        // tự bắt lỗi ở đây để trả JSON/text đúng như JS phía verify-otp.js đang mong đợi.
+        try {
+            otpService.send(SendOtpRequest.builder()
+                    .destination(pending.toString())
+                    .purpose(OtpPurpose.REGISTER)
+                    .build());
+            return ResponseEntity.noContent().build();
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
         }
     }
 
