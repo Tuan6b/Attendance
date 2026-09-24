@@ -41,10 +41,11 @@ services:
     ports:
       - "9090:9090"
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/attendance?currentSchema=mobile_auth,public
+      DB_URL: jdbc:postgresql://postgres:5432/attendance
       DB_USERNAME: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Thiếu POSTGRES_PASSWORD trong .env}
       FACE_AI_BASE_URL: http://face-ai:8002
+      FACE_AI_API_KEY: ${FACE_AI_API_KEY:?Thiếu FACE_AI_API_KEY trong .env}
     depends_on:
       - postgres
       - face-ai
@@ -58,6 +59,7 @@ services:
     env_file: ../mobileBackend/.env
     environment:
       FACE_AI_BASE_URL: http://face-ai:8002
+      ATTENDANCE_BASE_URL: http://backend:9090
       DB_URL: jdbc:postgresql://postgres:5432/attendance?currentSchema=mobile_auth,public
       FACE_AI_API_KEY: ${FACE_AI_API_KEY:?Thiếu FACE_AI_API_KEY trong .env}
     volumes:
@@ -65,10 +67,11 @@ services:
       - ../mobileBackend/secrets:/app/secrets:ro
     ports:
       # Public traffic must come through a TLS reverse proxy
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8081:8080"
     depends_on:
       - postgres
       - face-ai
+      - backend
     restart: unless-stopped
 
 volumes:
