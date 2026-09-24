@@ -1,26 +1,35 @@
+import hmac
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.services.face_service import face_service
 
 router = APIRouter(prefix="/api/internal/face", tags=["internal-face"])
+logger = logging.getLogger(__name__)
+
+MAX_IMAGE_B64_LEN = 3_000_000
 
 
 def verify_internal_key(x_api_key: Optional[str] = Header(None)):
     expected = getattr(settings, "internal_api_key", None)
-    if not expected or x_api_key != expected:
+    if not expected or x_api_key is None or not hmac.compare_digest(
+        x_api_key.encode("utf-8", "ignore"), expected.encode("utf-8", "ignore")
+    ):
         raise HTTPException(status_code=401, detail="Invalid internal API key")
 
 
 class SingleImageRequest(BaseModel):
-    image_base64: str  # dạng "data:image/jpeg;base64,..." hoặc base64 thuần
+    # dạng "data:image/jpeg;base64,..." hoặc base64 thuần
+    image_base64: str = Field(..., max_length=MAX_IMAGE_B64_LEN)
 
 
 class BatchImageRequest(BaseModel):
-    images_base64: List[str]  # danh sách nhiều ảnh (VD: 5 góc mặt)
+    # danh sách nhiều ảnh (VD: 5 góc mặt)
+    images_base64: List[str] = Field(..., max_length=5)
 
 
 @router.post("/embed", dependencies=[Depends(verify_internal_key)])
@@ -35,8 +44,9 @@ def embed_single(payload: SingleImageRequest):
         }
     except ValueError as e:
         return {"success": False, "message": str(e)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi xử lý ảnh: {e}")
+    except Exception:
+        logger.exception("Lỗi xử lý ảnh trong /embed")
+        raise HTTPException(status_code=500, detail="Lỗi xử lý ảnh.")
 
 
 @router.post("/embed-batch", dependencies=[Depends(verify_internal_key)])
@@ -54,12 +64,13 @@ def embed_batch(payload: BatchImageRequest):
             })
         except ValueError as e:
             results.append({"index": idx, "success": False, "message": str(e)})
-        except Exception as e:
-            results.append({"index": idx, "success": False, "message": f"Lỗi xử lý: {e}"})
+        except Exception:
+            logger.exception("Lỗi xử lý ảnh trong /embed-batch (index=%s)", idx)
+            results.append({"index": idx, "success": False, "message": "Lỗi xử lý ảnh."})
     return {"results": results}
 
 class PoseCheckRequest(BaseModel):
-    image_base64: str
+    image_base64: str = Field(..., max_length=MAX_IMAGE_B64_LEN)
 
 
 @router.post("/pose-check", dependencies=[Depends(verify_internal_key)])
@@ -68,8 +79,11 @@ def pose_check(payload: PoseCheckRequest):
         image = face_service.read_image_from_base64(payload.image_base64)
         result = face_service.analyze_single_face_pose(image)
         return result
-    except Exception as e:
-        return {"ok": False, "message": f"Lỗi xử lý: {e}", "face_count": 0}
+    except ValueError as e:
+        return {"ok": False, "message": str(e), "face_count": 0}
+    except Exception:
+        logger.exception("Lỗi xử lý ảnh trong /pose-check")
+        return {"ok": False, "message": "Lỗi xử lý ảnh.", "face_count": 0}
 class KnownFace(BaseModel):
     student_id: int
     student_code: str
@@ -78,9 +92,9 @@ class KnownFace(BaseModel):
 
 
 class RecognizeRequest(BaseModel):
-    image_base64: str
-    known_faces: List[KnownFace]
-    threshold: Optional[float] = None
+    image_base64: str = Field(..., max_length=MAX_IMAGE_B64_LEN)
+    known_faces: List[KnownFace] = Field(..., max_length=10_000)
+    threshold: Optional[float] = Field(None, ge=0.0, le=1.0)
 
 
 @router.post("/recognize", dependencies=[Depends(verify_internal_key)])
@@ -101,5 +115,6 @@ def recognize(payload: RecognizeRequest):
         return {"success": True, "results": results}
     except ValueError as e:
         return {"success": False, "message": str(e)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi nhận diện: {e}")
+    except Exception:
+        logger.exception("Lỗi xử lý ảnh trong /recognize")
+        raise HTTPException(status_code=500, detail="Lỗi nhận diện.")

@@ -1,4 +1,5 @@
 import base64
+import binascii
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -43,13 +44,18 @@ class FaceService:
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if img is None:
             raise ValueError("Không đọc được ảnh.")
+        if img.shape[0] * img.shape[1] > settings.websocket_max_image_pixels:
+            raise ValueError("Ảnh quá lớn.")
         return img
 
     @staticmethod
     def read_image_from_base64(data_url: str):
         if "," in data_url:
             data_url = data_url.split(",", 1)[1]
-        data = base64.b64decode(data_url)
+        try:
+            data = base64.b64decode(data_url, validate=True)
+        except binascii.Error:
+            raise ValueError("Ảnh base64 không hợp lệ.")
         return FaceService.read_image_from_bytes(data)
 
     def get_faces(self, image) -> list:

@@ -4,8 +4,9 @@ services:
       context: ./face-ai
       dockerfile: Dockerfile
     container_name: attendance-face-ai
-    ports:
-      - "8002:8002"
+    # Internal-only service. For local debugging, use: "127.0.0.1:8002:8002"
+    expose:
+      - "8002"
     volumes:
       - ./face-ai/data:/app/data
       - insightface-models:/root/.insightface
@@ -40,10 +41,31 @@ services:
     ports:
       - "9090:9090"
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/attendance
+      DB_URL: jdbc:postgresql://postgres:5432/attendance?currentSchema=mobile_auth,public
       DB_USERNAME: postgres
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Thiếu POSTGRES_PASSWORD trong .env}
       FACE_AI_BASE_URL: http://face-ai:8002
+    depends_on:
+      - postgres
+      - face-ai
+    restart: unless-stopped
+
+  # Mobile Backend Gateway
+  mobile-backend:
+    build:
+      context: ../mobileBackend
+    container_name: attendance-mobile-backend
+    env_file: ../mobileBackend/.env
+    environment:
+      FACE_AI_BASE_URL: http://face-ai:8002
+      DB_URL: jdbc:postgresql://postgres:5432/attendance?currentSchema=mobile_auth,public
+      FACE_AI_API_KEY: ${FACE_AI_API_KEY:?Thiếu FACE_AI_API_KEY trong .env}
+    volumes:
+      # Read-only volume for JWT keystore
+      - ../mobileBackend/secrets:/app/secrets:ro
+    ports:
+      # Public traffic must come through a TLS reverse proxy
+      - "127.0.0.1:8080:8080"
     depends_on:
       - postgres
       - face-ai
