@@ -1,11 +1,122 @@
-<th:block th:fragment="sidebar">
-    <th:block th:if="${#authorization.expression('hasRole(''ADMIN'')')}">
-        <th:block th:replace="~{cms/sidebar/sidebar-admin :: sidebar}"></th:block>
-    </th:block>
-    <th:block th:if="${#authorization.expression('hasRole(''MANAGER'')')}">
-        <th:block th:replace="~{cms/sidebar/sidebar-manage :: sidebar}"></th:block>
-    </th:block>
-    <th:block th:if="${#authorization.expression('hasRole(''EMPLOYEE'')')}">
-        <th:block th:replace="~{cms/sidebar/sidebar-employee :: sidebar}"></th:block>
-    </th:block>
-</th:block>
+<nav class="sidebar" th:fragment="sidebar" aria-label="Điều hướng chính">
+
+    <a href="/" class="rail-logo" title="Smart Attendance">A</a>
+
+    <a th:if="${#authorization.expression('hasRole(''EMPLOYEE'')')}"
+       href="/attendance/leave/create" class="md-fab rail-fab sidebar-link" title="Xin nghỉ phép">
+        <span class="md-icon">add</span>
+    </a>
+
+    <ul class="sidebar-menu">
+        <th:block th:if="${#authorization.expression('hasRole(''ADMIN'')')}">
+            <li><a href="/dashboard/admin" class="sidebar-link"><span class="rail-pill"><span class="md-icon">space_dashboard</span></span>Tổng quan</a></li>
+            <li><a href="/admin/accounts" class="sidebar-link"><span class="rail-pill"><span class="md-icon">badge</span></span>Tài khoản</a></li>
+            <li><a href="/system/setting" class="sidebar-link"><span class="rail-pill"><span class="md-icon">tune</span></span>Cài đặt</a></li>
+        </th:block>
+
+        <th:block th:if="${#authorization.expression('hasRole(''MANAGER'')')}">
+            <li><a href="/dashboard/manager" class="sidebar-link"><span class="rail-pill"><span class="md-icon">space_dashboard</span></span>Tổng quan</a></li>
+            <li><a href="/attendance" class="sidebar-link"><span class="rail-pill"><span class="md-icon">fact_check</span></span>Chấm công</a></li>
+            <li><a href="/manager/accounts" class="sidebar-link"><span class="rail-pill"><span class="md-icon">groups</span></span>Nhân sự</a></li>
+            <li><a href="/face-id" class="sidebar-link"><span class="rail-pill"><span class="md-icon">face</span></span>Face ID</a></li>
+            <li><a href="/attendance/leave" class="sidebar-link"><span class="rail-pill"><span class="md-icon">event_busy</span></span>Đơn nghỉ</a></li>
+            <li><a href="/report" class="sidebar-link"><span class="rail-pill"><span class="md-icon">description</span></span>Báo cáo</a></li>
+            <li><a href="/user/profile" class="sidebar-link"><span class="rail-pill"><span class="md-icon">account_circle</span></span>Cá nhân</a></li>
+        </th:block>
+
+        <th:block th:if="${#authorization.expression('hasRole(''EMPLOYEE'')')}">
+            <li><a href="/dashboard/employee" class="sidebar-link"><span class="rail-pill"><span class="md-icon">space_dashboard</span></span>Trang chủ</a></li>
+            <li><a href="/attendance/history" class="sidebar-link"><span class="rail-pill"><span class="md-icon">history</span></span>Lịch sử</a></li>
+            <li><a href="/attendance/leave/list" class="sidebar-link"><span class="rail-pill"><span class="md-icon">event_busy</span></span>Đơn nghỉ</a></li>
+            <li><a href="/face-id/create" class="sidebar-link"><span class="rail-pill"><span class="md-icon">fingerprint</span></span>Face ID</a></li>
+            <li><a href="/report" class="sidebar-link"><span class="rail-pill"><span class="md-icon">description</span></span>Báo cáo</a></li>
+            <li><a href="/report/create" class="sidebar-link"><span class="rail-pill"><span class="md-icon">post_add</span></span>Nộp báo cáo</a></li>
+            <li><a href="/user/profile" class="sidebar-link"><span class="rail-pill"><span class="md-icon">account_circle</span></span>Cá nhân</a></li>
+        </th:block>
+    </ul>
+
+    <div class="sidebar-footer">
+        <button type="button" class="rail-action" id="themeToggle" title="Đổi giao diện sáng/tối">
+            <span class="md-icon">dark_mode</span>
+            <span class="rail-action__label">Tối</span>
+        </button>
+        <span class="rail-avatar" th:title="${#authentication.principal.fullName}">
+            <span class="md-icon">person</span>
+        </span>
+        <form th:action="@{/auth/logout}" method="post" class="logout-form">
+            <button type="submit" class="rail-action logout">
+                <span class="md-icon">logout</span>
+                <span class="rail-action__label">Đăng xuất</span>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        (function () {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll(".sidebar .sidebar-link").forEach(function (link) {
+                if (link.getAttribute("href") === currentPath) {
+                    link.classList.add("active");
+                    link.setAttribute("aria-current", "page");
+                }
+            });
+
+            // Light/dark mode, remembered per browser
+            const root = document.documentElement;
+            const btn = document.getElementById("themeToggle");
+            function apply(mode) {
+                root.setAttribute("data-theme", mode);
+                btn.querySelector(".md-icon").textContent = mode === "dark" ? "light_mode" : "dark_mode";
+                btn.querySelector(".rail-action__label").textContent = mode === "dark" ? "Sáng" : "Tối";
+            }
+            let saved = null;
+            try { saved = localStorage.getItem("theme"); } catch (e) { }
+            apply(saved === "dark" ? "dark" : "light");
+            btn.addEventListener("click", function () {
+                const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+                apply(next);
+                try { localStorage.setItem("theme", next); } catch (e) { }
+            });
+        })();
+    </script>
+
+    <!-- Toggle sidebar trên mobile (hamburger + overlay) -->
+    <script>
+        (function () {
+            const sidebar = document.querySelector(".sidebar");
+            if (!sidebar) return;
+
+            const toggleBtn = document.createElement("button");
+            toggleBtn.className = "sidebar-toggle-btn";
+            toggleBtn.setAttribute("aria-label", "Mở/đóng menu");
+            toggleBtn.innerHTML = '<span class="md-icon">menu</span>';
+            document.body.appendChild(toggleBtn);
+
+            const backdrop = document.createElement("div");
+            backdrop.className = "sidebar-backdrop";
+            document.body.appendChild(backdrop);
+
+            function openSidebar() {
+                sidebar.classList.add("sidebar-open");
+                backdrop.classList.add("active");
+                toggleBtn.innerHTML = '<span class="md-icon">close</span>';
+            }
+
+            function closeSidebar() {
+                sidebar.classList.remove("sidebar-open");
+                backdrop.classList.remove("active");
+                toggleBtn.innerHTML = '<span class="md-icon">menu</span>';
+            }
+
+            toggleBtn.addEventListener("click", function () {
+                sidebar.classList.contains("sidebar-open") ? closeSidebar() : openSidebar();
+            });
+
+            backdrop.addEventListener("click", closeSidebar);
+
+            sidebar.querySelectorAll(".sidebar-link").forEach(function (link) {
+                link.addEventListener("click", closeSidebar);
+            });
+        })();
+    </script>
+</nav>

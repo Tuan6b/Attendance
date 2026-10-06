@@ -273,9 +273,15 @@ async function postJson(url, body) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    const data = await res.json().catch(() => ({}));
+    const text = await res.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        data = { message: text };
+    }
     if (!res.ok){
-        const errorMessage = data.message || ('HTTP ' + res.status);
+        const errorMessage = (data && data.message) ? data.message : ('HTTP ' + res.status);
         throw new Error(errorMessage);
     }
     return data;

@@ -102,7 +102,7 @@
     background:
         var(--bg-form);
 
-    color:white;
+    color: var(--on-surface);
 
     border:1px solid var(--border);
 
@@ -134,7 +134,7 @@
 
     cursor:pointer;
 
-    color:var(--text-white);
+    color: var(--on-primary);
     font-weight:600;
 
     background:
@@ -189,7 +189,7 @@
 
 .attendance-table thead{
     background:
-        rgba(255,255,255,.03);
+        var(--surface-container);
 }
 
 .attendance-table th{

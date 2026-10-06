@@ -123,7 +123,7 @@
 
     font-weight: 700;
 
-    color: var(--text-white);
+    color: var(--on-primary);
 
     background: linear-gradient(to right, var(--indigo-06), var(--purple));
 

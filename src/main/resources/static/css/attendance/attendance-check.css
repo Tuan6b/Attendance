@@ -1,35 +1,21 @@
+@import url("/css/theme.css");
+
 /* ==================================================
    ATTENDANCE CHECK
    Minimal Face ID UI
 ================================================== */
 
-:root {
-    --primary: #2563eb;
-    --primary-light: #60a5fa;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --bg: #020617;
-    --bg-card: rgba(15, 23, 42, 0.95);
-    --bg-soft: rgba(30, 41, 59, 0.8);
-    --text: #f8fafc;
-    --text-light: #cbd5e1;
-    --border: rgba(148, 163, 184, 0.2);
-    --radius: 22px;
-    --header-h: 64px;
-}
-
-/* ==================================================
-   DARK MODE
-================================================== */
-
+:root,
 body.dark {
-    --bg: #020617;
-    --bg-card: rgba(15, 23, 42, 0.98);
-    --bg-soft: rgba(30, 41, 59, 0.85);
-    --text: #f8fafc;
-    --text-light: #cbd5e1;
-    --border: rgba(148, 163, 184, 0.25);
+    --danger: var(--error);
+    --bg: var(--surface);
+    --bg-card: var(--surface-container-low);
+    --bg-soft: var(--surface-container);
+    --text: var(--on-surface);
+    --text-light: var(--on-surface-variant);
+    --border: var(--outline-variant);
+    --radius: var(--shape-xl);
+    --header-h: 64px;
 }
 
 /* ==================================================
@@ -52,7 +38,7 @@ body {
     min-height: 100dvh; /* mobile viewport fix (iOS URL bar) */
     background: var(--bg);
     color: var(--text);
-    font-family: "Segoe UI", sans-serif;
+    font-family: var(--font-body);
     overflow: hidden;
 }
 
@@ -66,7 +52,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 0 20px;
-    background: rgba(2, 6, 23, 0.78);
+    background: var(--surface-container-low);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid var(--border);
     position: sticky;
@@ -239,13 +225,13 @@ body {
 }
 
 .status-in {
-    color: #047857;
-    background: rgba(16, 185, 129, .15);
+    color: var(--success);
+    background: var(--success-container);
 }
 
 .status-out {
-    color: #dc2626;
-    background: rgba(239, 68, 68, .15);
+    color: var(--error);
+    background: var(--error-container);
 }
 
 /* ==================================================
@@ -279,11 +265,11 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: radial-gradient(circle at top, rgba(37, 99, 235, 0.25), transparent 45%), #020617;
+    background: var(--surface-container-high);
 }
 
 body.dark .scanner-card {
-    background-color: #101827;
+    background-color: var(--surface-container-high);
 }
 
 .scan-frame {
@@ -291,11 +277,22 @@ body.dark .scanner-card {
     height: min(82%, 680px);
     aspect-ratio: 4 / 3;
     margin: auto;
-    border: 3px solid rgba(255, 255, 255, 0.25);
+    border: 3px solid var(--tertiary);
     border-radius: 28px;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.15), 0 20px 60px rgba(2, 6, 23, 0.45);
+    animation: scan-pulse 2s ease-out infinite;
+}
+
+/* MD3 Express "listening" ring around the camera */
+@keyframes scan-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(242, 118, 94, .45); }
+    70% { box-shadow: 0 0 0 18px rgba(242, 118, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(242, 118, 94, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scan-frame { animation: none; }
 }
 
 #overlay {
@@ -311,7 +308,7 @@ body.dark .scanner-card {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    background: #0f172a;
+    background: var(--surface-container);
 }
 
 /* .scan-frame::before {
@@ -339,8 +336,8 @@ body.dark .scanner-card {
 .scanner-pill {
     padding: 8px 14px;
     border-radius: 999px;
-    background: rgba(37, 99, 235, 0.2);
-    color: #dbeafe;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
     font-weight: 700;
     backdrop-filter: blur(8px);
 }
@@ -355,15 +352,15 @@ body.dark .scanner-card {
     padding: 12px 18px;
     border: 1px solid var(--border);
     border-radius: 999px;
-    background: rgba(15, 23, 42, 0.75);
+    background: var(--surface-container-low);
     color: var(--text);
     cursor: pointer;
     font-weight: 700;
 }
 
 .action-btn.primary {
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    color: white;
+    background: var(--tertiary);
+    color: var(--on-tertiary);
     border-color: transparent;
 }
 
@@ -412,8 +409,8 @@ body.dark .scanner-card {
     border-radius: 999px;
     font-size: 1rem;
     font-weight: 700;
-    background: rgba(2, 6, 23, 0.8);
-    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: var(--surface-container-highest);
+    border: 1px solid var(--outline-variant);
     width: max-content;
     max-width: min(92%, 760px);
     text-align: center;
@@ -422,10 +419,10 @@ body.dark .scanner-card {
 
 .success-result {
     background:
-        rgba(59,130,246,.15);
+        var(--primary-container);
 
     border:
-        1px solid rgba(59,130,246,.3);
+        1px solid var(--primary);
 
     color:
         var(--primary);
@@ -433,10 +430,10 @@ body.dark .scanner-card {
 
 .error-result {
     background:
-        rgba(239,68,68,.15);
+        var(--error-container);
 
     border:
-        1px solid rgba(239,68,68,.35);
+        1px solid var(--error);
 
     color:
         var(--danger);
@@ -514,36 +511,36 @@ body.dark .scanner-card {
     background:
         linear-gradient(
             135deg,
-            rgba(16,185,129,.15),
+            var(--success-container),
             transparent
         );
 
     border-color:
-        rgba(16,185,129,.3);
+        var(--success);
 }
 
 .warning-card {
     background:
         linear-gradient(
             135deg,
-            rgba(245,158,11,.15),
+            var(--warning-container),
             transparent
         );
 
     border-color:
-        rgba(245,158,11,.3);
+        var(--warning);
 }
 
 .danger-card {
     background:
         linear-gradient(
             135deg,
-            rgba(239,68,68,.15),
+            var(--error-container),
             transparent
         );
 
     border-color:
-        rgba(239,68,68,.3);
+        var(--error);
 }
 
 .attendance-present {
@@ -957,8 +954,8 @@ body.dark .stat-card {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    color: #fff;
+    background: var(--tertiary);
+    color: var(--on-tertiary);
 }
 
 .btn-secondary {
@@ -977,16 +974,16 @@ body.dark .stat-card {
     flex-direction: column;
     gap: 14px;
     padding: 24px 20px calc(20px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(180deg, rgba(2, 6, 23, .5) 0%, rgba(2, 6, 23, .92) 28%, rgba(2, 6, 23, .97) 100%);
+    background: var(--surface);
     backdrop-filter: blur(6px);
 }
 
 .offline-message {
     padding: 14px 16px;
     border-radius: 14px;
-    background: rgba(245, 158, 11, .15);
-    border: 1px solid rgba(245, 158, 11, .35);
-    color: #fcd34d;
+    background: var(--warning-container);
+    border: 1px solid var(--warning);
+    color: var(--warning);
     font-weight: 600;
     font-size: .92rem;
     text-align: center;
@@ -1109,8 +1106,8 @@ body.dark .stat-card {
     align-self: center;
     padding: 8px 18px;
     border-radius: 999px;
-    background: rgba(37, 99, 235, .2);
-    color: #dbeafe;
+    background: var(--primary-container);
+    color: var(--on-primary-container);
     font-weight: 700;
     font-size: .88rem;
     backdrop-filter: blur(8px);

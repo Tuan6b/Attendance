@@ -2,6 +2,7 @@ package com.attendenceSystem.module.faceid.api;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,6 +23,8 @@ import com.attendenceSystem.module.faceid.dto.response.FaceCaptureResponse;
 import com.attendenceSystem.module.faceid.dto.response.FaceIdAttendanceResponse;
 import com.attendenceSystem.module.faceid.dto.response.FaceIdentifyResponse;
 import com.attendenceSystem.module.faceid.dto.response.LatestFaceResponse;
+import com.attendenceSystem.module.faceid.exception.FaceAiException;
+import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
 import com.attendenceSystem.module.faceid.service.FaceAiClient;
 import com.attendenceSystem.module.faceid.service.FaceIdAttendanceService;
 import com.attendenceSystem.module.faceid.service.FaceIdCaptureService;
@@ -45,6 +48,14 @@ public class FaceIdApiController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
                     .body(FaceCaptureResponse.builder().message(e.getMessage()).success(false).build());
+        } catch (FaceAiUnavailableException e) {
+            log.warn("Đăng ký khuôn mặt thất bại do Face AI không khả dụng: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(FaceCaptureResponse.builder().message("Hệ thống AI nhận diện hiện không khả dụng. Vui lòng thử lại sau.").success(false).build());
+        } catch (FaceAiException e) {
+            log.warn("Đăng ký khuôn mặt thất bại do lỗi Face AI: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(FaceCaptureResponse.builder().message("Lỗi xử lý từ hệ thống AI: " + e.getMessage()).success(false).build());
         } catch (Exception e) {
             log.error("Lỗi khi đăng ký face", e);
             return ResponseEntity.internalServerError()
@@ -65,6 +76,12 @@ public class FaceIdApiController {
     public ResponseEntity<LatestFaceResponse> getLatestFace() {
         try {
             return ResponseEntity.ok(faceIdCaptureService.getLatestFace());
+        } catch (IllegalStateException e) {
+            // Endpoint này permitAll (để trang kiosk /attendance/check dùng được ẩn danh), nên
+            // "chưa đăng nhập" là tình huống bình thường với khách kiosk — không phải lỗi máy
+            // chủ. Trả 401 đúng ngữ nghĩa thay vì rơi vào catch-all 500 bên dưới; JS phía
+            // client (attendance-check.js) đã tự xử lý nhánh lỗi này rồi.
+            return ResponseEntity.status(401).build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
@@ -80,6 +97,14 @@ public class FaceIdApiController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
                     .body(FaceCaptureResponse.builder().message(e.getMessage()).success(false).build());
+        } catch (FaceAiUnavailableException e) {
+            log.warn("Cập nhật ảnh điểm danh thất bại do Face AI không khả dụng: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(FaceCaptureResponse.builder().message("Hệ thống AI nhận diện hiện không khả dụng. Vui lòng thử lại sau.").success(false).build());
+        } catch (FaceAiException e) {
+            log.warn("Cập nhật ảnh điểm danh thất bại do lỗi Face AI: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(FaceCaptureResponse.builder().message("Lỗi xử lý từ hệ thống AI: " + e.getMessage()).success(false).build());
         } catch (Exception e) {
             log.error("Lỗi khi cập nhật ảnh điểm danh", e);
             return ResponseEntity.internalServerError()

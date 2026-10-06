@@ -8,7 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum OtpPurpose {
     FORGOT_PASSWORD(1, "Reset Password"),
     REGISTER(2, "Register Account"),
-    CHANGE_EMAIL(3, "Change Email");
+    CHANGE_EMAIL(3, "Change Email"),
+    LOGIN(4, "Login");
 
     private final int value;
     private final String name;

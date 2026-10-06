@@ -101,7 +101,7 @@
     border-color: var(--indigo-06);
 
     box-shadow:
-        0 0 0 4px rgba(99, 102, 241, .15);
+        0 0 0 4px rgba(49, 91, 140, .15);
 }
 
 /* =========================
@@ -146,7 +146,7 @@
 }
 
 .btn-primary {
-    color: white;
+    color: var(--on-primary);
 
     background:
         linear-gradient(to right,

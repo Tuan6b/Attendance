@@ -60,7 +60,7 @@
     width: 100%;
     border: 1px solid transparent;
     border-radius: 22px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-container);
     color: var(--text-white);
     text-align: left;
     padding: 22px;
@@ -74,9 +74,9 @@
 .setting-item:hover,
 .setting-item.active {
     transform: translateY(-4px);
-    box-shadow: 0 20px 50px rgba(10, 11, 65, 0.18);
+    box-shadow: 0 20px 50px rgba(49, 91, 140, 0.18);
     border-color: var(--indigo-06);
-    background: rgba(59, 130, 246, 0.12);
+    background: var(--primary-container);
 }
 
 .setting-item-icon {
@@ -86,7 +86,7 @@
     border-radius: 18px;
     display: grid;
     place-items: center;
-    color: white;
+    color: var(--on-primary);
     font-size: 1.4rem;
     background: linear-gradient(135deg, var(--indigo-06), var(--purple));
 }
@@ -167,7 +167,7 @@
     padding: 14px 24px;
     border: none;
     border-radius: 16px;
-    color: white;
+    color: var(--on-primary);
     cursor: pointer;
     background: linear-gradient(135deg, var(--indigo-06), var(--purple));
     font-weight: 700;
@@ -176,7 +176,7 @@
 
 .save-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 18px 40px rgba(10, 11, 65, 0.2);
+    box-shadow: 0 18px 40px rgba(49, 91, 140, 0.2);
 }
 
 .save-note {
@@ -223,7 +223,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(6, 7, 24, 0.65);
+    background: var(--scrim);
     backdrop-filter: blur(6px);
     align-items: center;
     justify-content: center;

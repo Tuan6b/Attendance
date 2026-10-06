@@ -18,6 +18,10 @@ import org.springframework.util.StringUtils;
 import com.attendenceSystem.module.attendance.dto.response.AttendanceResponse;
 import com.attendenceSystem.module.attendance.entity.AttendanceRecord;
 import com.attendenceSystem.module.attendance.entity.enums.LeaveStatus;
+import com.attendenceSystem.module.attendance.exception.AlreadyCheckedInException;
+import com.attendenceSystem.module.attendance.exception.AlreadyCheckedOutException;
+import com.attendenceSystem.module.attendance.exception.InvalidAttendanceStateException;
+import com.attendenceSystem.module.attendance.exception.NotCheckedInException;
 import com.attendenceSystem.module.attendance.repository.AttendanceRecordRepository;
 import com.attendenceSystem.module.attendance.repository.LeaveRequestRepository;
 import com.attendenceSystem.module.attendance.service.AttendanceActionService;
@@ -30,6 +34,8 @@ import com.attendenceSystem.module.faceid.dto.response.FaceIdentifyResponse;
 import com.attendenceSystem.module.faceid.entity.FaceProfile;
 import com.attendenceSystem.module.faceid.entity.FaceSample;
 import com.attendenceSystem.module.faceid.entity.enums.FaceIdAction;
+import com.attendenceSystem.module.faceid.exception.FaceAiException;
+import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
 import com.attendenceSystem.module.faceid.repository.FaceProfileRepository;
 import com.attendenceSystem.module.faceid.repository.FaceSampleRepository;
 import com.attendenceSystem.module.faceid.service.FaceAiClient;
@@ -114,7 +120,19 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         }
 
-        FaceAiClient.PoseResult poseResult = faceAiClient.checkPose(request.getImageBase64());
+        FaceAiClient.PoseResult poseResult;
+        try {
+            poseResult = faceAiClient.checkPose(request.getImageBase64());
+        } catch (FaceAiUnavailableException e) {
+            String message = "Hệ thống AI nhận diện hiện không khả dụng. Vui lòng thử lại hoặc sử dụng điểm danh thủ công.";
+            log.warn("Kiểm tra tư thế điểm danh thất bại do AI không khả dụng: {}", e.getMessage());
+            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
+        } catch (FaceAiException e) {
+            String message = "Lỗi xử lý từ hệ thống AI nhận diện: " + e.getMessage();
+            log.warn("Kiểm tra tư thế điểm danh thất bại: {}", e.getMessage());
+            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
+        }
+
         if (poseResult == null || !Boolean.TRUE.equals(poseResult.ok)) {
             String message = poseResult != null && StringUtils.hasText(poseResult.message)
                     ? poseResult.message
@@ -123,7 +141,19 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         }
 
-        FaceAiClient.EmbedResult embedResult = faceAiClient.embedSingle(request.getImageBase64());
+        FaceAiClient.EmbedResult embedResult;
+        try {
+            embedResult = faceAiClient.embedSingle(request.getImageBase64());
+        } catch (FaceAiUnavailableException e) {
+            String message = "Hệ thống AI nhận diện hiện không khả dụng. Vui lòng thử lại hoặc sử dụng điểm danh thủ công.";
+            log.warn("Tạo embedding điểm danh thất bại do AI không khả dụng: {}", e.getMessage());
+            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
+        } catch (FaceAiException e) {
+            String message = "Lỗi xử lý từ hệ thống AI nhận diện: " + e.getMessage();
+            log.warn("Tạo embedding điểm danh thất bại: {}", e.getMessage());
+            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
+        }
+
         if (embedResult == null || !embedResult.success || !StringUtils.hasText(embedResult.embedding)) {
             String message = embedResult != null && StringUtils.hasText(embedResult.message)
                     ? embedResult.message
@@ -164,8 +194,15 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
 
             log.info("Face ID attendance processed: student={}, action={}", request.getStudentCode(), action);
 
+        } catch (AlreadyCheckedInException | AlreadyCheckedOutException | InvalidAttendanceStateException
+                | NotCheckedInException e) {
+            // Đây là các quy tắc nghiệp vụ bình thường (vd quá giờ ca, đã điểm danh đủ 2 lượt...),
+            // không phải lỗi hệ thống — log warn để tránh làm nhiễu log với stack trace không
+            // cần thiết mỗi khi một nhân viên đến muộn.
+            String errorMessage = e.getMessage();
+            log.warn("Điểm danh bị từ chối theo quy tắc nghiệp vụ cho {}: {}", request.getStudentCode(), errorMessage);
+            return buildResponseAndLog(request, FaceIdAction.FAILED, errorMessage, trackingId, timestamp, null);
         } catch (Exception e) {
-            // Catch specific attendance exceptions
             String errorMessage = e.getMessage();
             log.error("Attendance processing error for student {}: {}", request.getStudentCode(), errorMessage, e);
             return buildResponseAndLog(request, FaceIdAction.FAILED, errorMessage, trackingId, timestamp, null);
@@ -288,6 +325,11 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
 
             log.info("Manual Face ID attendance: employee={}, action={}", request.getEmployeeCode(), action);
 
+        } catch (AlreadyCheckedInException | AlreadyCheckedOutException | InvalidAttendanceStateException
+                | NotCheckedInException e) {
+            String errorMessage = e.getMessage();
+            log.warn("Điểm danh thủ công bị từ chối theo quy tắc nghiệp vụ cho {}: {}", request.getEmployeeCode(), errorMessage);
+            return buildManualResponseAndLog(request, FaceIdAction.FAILED, errorMessage, trackingId, timestamp, null);
         } catch (Exception e) {
             String errorMessage = e.getMessage();
             log.error("Manual attendance processing error for {}: {}", request.getEmployeeCode(), errorMessage, e);

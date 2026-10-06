@@ -11,6 +11,11 @@ import org.springframework.web.server.ResponseStatusException;
 import com.attendenceSystem.exception.custom.BadRequestException;
 import com.attendenceSystem.exception.custom.ConflictException;
 import com.attendenceSystem.exception.custom.ResourceNotFoundException;
+import com.attendenceSystem.module.faceid.exception.FaceAiException;
+import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
+import com.attendenceSystem.module.otp.exception.OtpExpiredException;
+import com.attendenceSystem.module.otp.exception.OtpInvalidException;
+import com.attendenceSystem.module.otp.exception.OtpNotFoundException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -59,11 +64,35 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             BadRequestException.class,
+            OtpInvalidException.class,
+            OtpExpiredException.class,
+            OtpNotFoundException.class,
             IllegalArgumentException.class,
             IllegalStateException.class
     })
     public ResponseEntity<String> handleBadRequest(final RuntimeException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());
+    }
+
+    @ExceptionHandler(FaceAiUnavailableException.class)
+    public ResponseEntity<String> handleFaceAiUnavailable(final FaceAiUnavailableException ex) {
+        log.warn("Dịch vụ Face AI không khả dụng: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body("Hệ thống nhận diện AI hiện không khả dụng. Vui lòng thử lại sau.");
+    }
+
+    @ExceptionHandler(FaceAiException.class)
+    public ResponseEntity<String> handleFaceAiException(final FaceAiException ex) {
+        log.warn("Lỗi dịch vụ Face AI: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body("Lỗi kết nối hoặc xử lý từ hệ thống AI.");
+    }
+
+    @ExceptionHandler(org.springframework.web.client.RestClientException.class)
+    public ResponseEntity<String> handleRestClientException(final org.springframework.web.client.RestClientException ex) {
+        log.warn("Lỗi gọi dịch vụ REST ngoại vi: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body("Không thể kết nối đến dịch vụ ngoại vi. Vui lòng thử lại sau.");
     }
 
     @ExceptionHandler(Exception.class)

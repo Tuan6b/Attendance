@@ -51,7 +51,7 @@ public class FaceIdLogServiceImpl implements FaceIdLogService {
                     .confidence(request.getConfidence())
                     .cameraId(request.getCameraId())
                     .imageId(request.getImageId())
-                    .trackingId(request.getTrackingId())
+                    .trackingId(uniqueTrackingId(request.getTrackingId()))
                     .liveness(request.getLiveness())
                     .action(action)
                     .message(message)
@@ -92,7 +92,7 @@ public class FaceIdLogServiceImpl implements FaceIdLogService {
                     .confidence(null)
                     .manual(true)
                     .cameraId(request.getCameraId())
-                    .trackingId(request.getTrackingId())
+                    .trackingId(uniqueTrackingId(request.getTrackingId()))
                     .action(action)
                     .message(message)
                     .requestPayload(requestPayload)
@@ -111,4 +111,11 @@ public class FaceIdLogServiceImpl implements FaceIdLogService {
         }
     }
 
+    /**
+     * tracking_id là unique: lần retry (IGNORED/DUPLICATE, hoặc gửi lại sau FAILED) mang cùng
+     * trackingId → insert lỗi và mất dòng log. Bản ghi sau giữ trackingId trong request_payload.
+     */
+    private String uniqueTrackingId(String trackingId) {
+        return trackingId != null && faceIdRecognitionRepository.existsByTrackingId(trackingId) ? null : trackingId;
+    }
 }

@@ -169,7 +169,7 @@
 }
 
 .btn-primary {
-    color: var(--text-white);
+    color: var(--on-primary);
 
     background: linear-gradient(
         135deg,
@@ -217,7 +217,7 @@
 
     inset: 0;
 
-    background: rgba(0, 0, 0, 0.55);
+    background: var(--scrim);
 
     backdrop-filter: blur(6px);
 
@@ -333,7 +333,7 @@
 
     font-size: 12px;
 
-    color: #ff6b6b;
+    color: var(--error);
 }
 
 /* =========================

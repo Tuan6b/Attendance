@@ -53,7 +53,7 @@
 
     font-weight: 600;
 
-    color: white;
+    color: var(--on-primary);
 
     background:
         linear-gradient(to right,
@@ -135,7 +135,7 @@ th {
 td {
     padding: 18px;
 
-    color: #e2e8f0;
+    color: var(--on-surface);
 
     border-bottom: 1px solid var(--bg-form) ;
 }
@@ -170,7 +170,7 @@ tbody tr:hover {
 
     font-weight: 700;
 
-    color: white;
+    color: var(--on-primary);
 
     background:
         linear-gradient(135deg,
@@ -194,7 +194,7 @@ tbody tr:hover {
 
     background: var(--shadow-box);
 
-    color: #a5b4fc;
+    color: var(--on-surface-variant);
 }
 
 /* ===================================
@@ -297,6 +297,7 @@ tbody tr:hover {
         linear-gradient(to right,
             var(--indigo-06),
             var(--purple));
+    color: var(--on-primary);
 }
 
 .lock {
@@ -395,7 +396,7 @@ tbody tr:hover {
 
 .detail-item p,
 .detail-item span {
-    color: white;
+    color: var(--on-surface);
     font-weight: 600;
 }
 
@@ -445,7 +446,7 @@ tbody tr:hover {
     border-radius: 12px;
     cursor: pointer;
     font-weight: 600;
-    color: white;
+    color: var(--on-primary);
     background: linear-gradient(to right, var(--indigo-06), var(--purple));
     display: inline-flex;
     align-items: center;
@@ -482,12 +483,12 @@ tbody tr:hover {
 
 .page-link:hover {
     background: var(--shadow-box);
-    color: white;
+    color: var(--on-surface);
 }
 
 .page-link.active {
     background: linear-gradient(to right, var(--indigo-06), var(--purple));
-    color: white;
+    color: var(--on-primary);
 }
 
 @media(max-width:768px) {

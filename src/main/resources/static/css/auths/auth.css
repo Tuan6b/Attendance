@@ -1,0 +1,285 @@
+@import url("/css/theme.css");
+
+/* ===== Auth screens (login / register / forgot password / OTP) — MD3 Express ===== */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    min-height: 100vh;
+    background: var(--surface);
+    color: var(--on-surface);
+    font-family: var(--font-body);
+    display: flex;
+}
+
+.auth-shell {
+    flex: 1;
+    display: flex;
+    gap: 28px;
+    padding: 34px 36px;
+    animation: md-spring-in .5s cubic-bezier(.2, 1.4, .4, 1) backwards;
+}
+
+/* ---------- form panel ---------- */
+.auth-panel {
+    flex: 0 0 520px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 22px;
+    padding: 0 8px;
+}
+
+.auth-title {
+    font: 600 var(--type-display-lg)/1.05 var(--font-display);
+    letter-spacing: -.02em;
+}
+
+.auth-sub {
+    font-size: var(--type-body-lg);
+    color: var(--on-surface-variant);
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+.auth-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface-container);
+    padding: 4px;
+    border-radius: var(--shape-full);
+    align-self: flex-start;
+}
+
+.auth-tabs a {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: var(--shape-full);
+    color: var(--on-surface-variant);
+    text-decoration: none;
+    transition: background var(--motion-standard), color var(--motion-standard);
+}
+
+.auth-tabs a[aria-current="page"] {
+    background: var(--surface);
+    color: var(--on-surface);
+}
+
+.auth-form {
+    display: grid;
+    gap: 14px;
+}
+
+.auth-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.auth-group label {
+    font-size: var(--type-label);
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--on-surface-variant);
+}
+
+.auth-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-container);
+    border: 1px solid transparent;
+    border-radius: var(--shape-md);
+    padding: 0 18px;
+    color: var(--on-surface-variant);
+    transition: border-color var(--motion-standard);
+}
+
+.auth-input:focus-within {
+    border-color: var(--primary);
+}
+
+.auth-input input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    padding: 15px 0;
+    font: 500 var(--type-body-lg)/1.2 var(--font-body);
+    color: var(--on-surface);
+}
+
+.auth-input input::placeholder {
+    color: var(--on-surface-variant);
+    opacity: .7;
+}
+
+.auth-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.auth-link {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.auth-link:hover {
+    color: var(--tertiary);
+}
+
+.link-btn {
+    border: 0;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.link-btn:disabled {
+    color: var(--on-surface-variant);
+    cursor: default;
+}
+
+/* ---------- messages ---------- */
+.error-message,
+.success-message,
+.otp-alert {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 12px 16px;
+    border-radius: var(--shape-sm);
+}
+
+.error-message,
+.otp-alert--error {
+    color: var(--error);
+    background: var(--error-container);
+}
+
+.success-message,
+.otp-alert--success {
+    color: var(--success);
+    background: var(--success-container);
+}
+
+/* field-level errors sit under the input, no box */
+.auth-group .error-message {
+    padding: 0 4px;
+    background: none;
+    font-weight: 500;
+}
+
+/* ---------- OTP ---------- */
+.otp-input {
+    letter-spacing: .6em;
+    font-family: var(--font-display) !important;
+    font-size: 28px !important;
+    font-weight: 600 !important;
+    text-align: center;
+}
+
+.otp-resend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--on-surface-variant);
+}
+
+/* ---------- brand art panel ---------- */
+.auth-art {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    overflow: hidden;
+    border-radius: 32px;
+    background: var(--p-40);
+    color: #fff;
+    padding: 36px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.auth-art::after {
+    content: "";
+    position: absolute;
+    right: -90px;
+    top: -70px;
+    width: 280px;
+    height: 280px;
+    border-radius: 48% 52% 44% 56%;
+    background: rgba(242, 118, 94, .5);
+}
+
+.auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #fff;
+    text-decoration: none;
+    font: 600 20px/1 var(--font-display);
+    position: relative;
+    z-index: 1;
+}
+
+.auth-brand__mark {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    background: var(--a-60);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+}
+
+.auth-quote {
+    font: 500 30px/1.25 var(--font-display);
+    letter-spacing: -.01em;
+    max-width: 560px;
+}
+
+.auth-points {
+    display: flex;
+    gap: 26px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, .82);
+}
+
+.auth-points span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+@media (max-width: 980px) {
+    .auth-shell {
+        flex-direction: column-reverse;
+        padding: 16px;
+    }
+
+    .auth-panel {
+        flex: none;
+        padding: 8px 0 24px;
+    }
+
+    .auth-art {
+        min-height: 180px;
+        padding: 24px;
+    }
+
+    .auth-quote {
+        font-size: 22px;
+    }
+}

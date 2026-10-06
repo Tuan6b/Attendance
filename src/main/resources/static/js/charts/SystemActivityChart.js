@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", function () {
             datasets: [{
                 label: "Số hoạt động",
                 data: [1200, 1450, 1320, 1680, 1820, 2100],
-                backgroundColor: "#3b82f6",
+                backgroundColor: "#315B8C",
                 borderRadius: 8,
                 borderSkipped: false
             }]
@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         stepSize: 500
                     },
                     grid: {
-                        color: "#e5e7eb"
+                        color: "#EFE2D1"
                     }
                 },
                 x: {

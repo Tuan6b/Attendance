@@ -26,6 +26,7 @@
         linear-gradient(135deg,
             var(--indigo-06),
             var(--purple));
+    color: var(--on-primary);
 }
 
 .admin-stat-card__icon i {
@@ -77,12 +78,12 @@
 }
 
 /* Card accent colors */
-.admin-stat-card.total-account    .admin-stat-card__icon { background: rgba(112, 114, 254, 0.35); }
-.admin-stat-card.active-account   .admin-stat-card__icon { background: rgba(73, 206, 122, 0.35); }
-.admin-stat-card.locked-account   .admin-stat-card__icon { background: rgba(198, 46, 46, 0.35); }
-.admin-stat-card.pending-account  .admin-stat-card__icon { background: rgba(248, 159, 7, 0.35); }
-.admin-stat-card.uptime-system    .admin-stat-card__icon { background: rgba(108, 52, 238, 0.35); }
-.admin-stat-card.today-login      .admin-stat-card__icon { background: rgba(247, 96, 172, 0.35); }
+.admin-stat-card.total-account    .admin-stat-card__icon { background: var(--primary-container); }
+.admin-stat-card.active-account   .admin-stat-card__icon { background: var(--success-container); }
+.admin-stat-card.locked-account   .admin-stat-card__icon { background: var(--error-container); }
+.admin-stat-card.pending-account  .admin-stat-card__icon { background: var(--warning-container); }
+.admin-stat-card.uptime-system    .admin-stat-card__icon { background: var(--primary-container); }
+.admin-stat-card.today-login      .admin-stat-card__icon { background: var(--tertiary-container); }
 
 
 /* ===================================
@@ -124,7 +125,7 @@
     padding: 0 7px;
     border-radius: 999px;
     background: linear-gradient(to right, var(--indigo-06), var(--purple));
-    color: var(--text-white);
+    color: var(--on-primary);
     font-size: .75rem;
     font-weight: 700;
     display: flex;
@@ -147,6 +148,7 @@
         linear-gradient(135deg,
             var(--indigo-06),
             var(--purple));
+    color: var(--on-primary);
 }
 
 .admin-stat-card__icon i {
@@ -319,7 +321,7 @@
     border-radius: 12px;
     cursor: pointer;
     font-weight: 600;
-    color: var(--text-white);
+    color: var(--on-primary);
     background: linear-gradient(to right, var(--indigo-06), var(--purple));
     transition: .25s;
 }
@@ -404,7 +406,7 @@ tbody tr:hover {
     justify-content: center;
     background: var(--bg-table-06);
     font-weight: 700;
-    color: white;
+    color: var(--on-surface);
 }
 
 
@@ -455,7 +457,7 @@ tbody tr:hover {
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--bg-table);
-    color: white;
+    color: var(--on-surface);
     cursor: pointer;
     transition: .2s;
 }
@@ -575,4 +577,7 @@ tbody tr:hover {
     .admin-overview {
         grid-template-columns: 1fr;
     }
+}
+.admin-action-card__icon i {
+    color: var(--on-primary);
 }

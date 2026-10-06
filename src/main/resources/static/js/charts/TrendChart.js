@@ -10,8 +10,8 @@ document.addEventListener("DOMContentLoaded", function () {
             datasets: [{
                 label: "Tỷ lệ chuyên cần (%)",
                 data: [92, 94, 95, 93, 97, 98],
-                borderColor: "#3b82f6",
-                backgroundColor: "rgba(59,130,246,0.15)",
+                borderColor: "#315B8C",
+                backgroundColor: "rgba(49,91,140,0.15)",
                 borderWidth: 3,
                 tension: 0.4,
                 fill: true,

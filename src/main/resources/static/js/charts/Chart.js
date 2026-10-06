@@ -10,19 +10,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 {
                     label: "Có mặt",
                     data: weeklyStatsData.map(item => item.present),
-                    backgroundColor: "#10b981",
+                    backgroundColor: "#2F6B4F",
                     borderRadius: 1
                 },
                 {
                     label: "Đi muộn",
                     data: weeklyStatsData.map(item => item.late),
-                    backgroundColor: "#f59e0b",
+                    backgroundColor: "#E0B54F",
                     borderRadius: 4
                 },
                 {
                     label: "Vắng mặt",
                     data: weeklyStatsData.map(item => item.absent),
-                    backgroundColor: "#ef4444",
+                    backgroundColor: "#F2765E",
                     borderRadius: 2
                 }
             ]

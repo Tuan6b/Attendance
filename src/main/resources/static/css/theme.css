@@ -1,43 +1,196 @@
-[data-theme="light"] {
-    --bg-dark: #020617;
-    --bg-card: rgba(15, 23, 42, .65);
+/* ==========================================================================
+   Attendance System — Material Design 3 Express theme
+   Source palette: #F5EBDD  #F2765E  #315B8C  #413333
+   Role mapping:   primary = #315B8C (blue)   tertiary/accent = #F2765E (coral)
+                   neutral = #413333 (brown)  surface base    = #F5EBDD (cream)
+   ========================================================================== */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Roboto+Flex:opsz,wght@8..144,300;8..144,400;8..144,500;8..144,700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0..1,0&display=swap");
 
-    --bg-table: rgba(255, 255, 255, .03);
-    --bg-form: rgba(255, 255, 255, .04);
-    --bg-table-06: rgba(255, 255, 255, .06);
-    --bg-table-015: rgba(255, 255, 255, .15);
+:root {
+    /* ---- tonal palettes (MD3) ---- */
+    --p-0:#000000;  --p-10:#001C38; --p-20:#0B2743; --p-30:#16436F;
+    --p-40:#315B8C; --p-50:#4C77AA; --p-60:#6A93C7; --p-70:#89AFE4;
+    --p-80:#A9C8F5; --p-90:#D5E3FA; --p-95:#EAF1FD; --p-100:#FFFFFF;
 
-    --bg-purple-025:rgba(1, 1, 11, 0.25);
+    --a-10:#3B0D02; --a-20:#5A1B0B; --a-30:#7A3020; --a-40:#A64633;
+    --a-50:#CC5C45; --a-60:#F2765E; --a-70:#FF9680; --a-80:#FFB6A2;
+    --a-90:#FFDDD3; --a-95:#FFEEE9;
 
-    --border: rgba(255, 255, 255, .08);
+    --n-0:#000000;  --n-10:#211A19; --n-20:#3A2E2C; --n-30:#413333;
+    --n-40:#6E5B55; --n-50:#8B776F; --n-60:#9A857C; --n-70:#B9A69D;
+    --n-80:#D6C6BB; --n-90:#EFE2D1; --n-94:#F5EBDD; --n-96:#FAF3E9; --n-100:#FFFFFF;
 
-    --text-white: #ffffff;
-    --text-gray: #94a3b8;
-    --text-light: #cbd5e1;
+    /* ---- expressive shape scale ---- */
+    --shape-xs:8px; --shape-sm:12px; --shape-md:18px; --shape-lg:24px;
+    --shape-xl:28px; --shape-xxl:34px; --shape-full:999px;
 
-    --indigo-06: rgba(99, 102, 241, .6);
-    --indigo-15: rgba(99, 102, 241, .15);
-    --indigo-08: rgba(10, 11, 65, 0.08);
-    --purple: #8b5cf6;
-    --purple-light: #b794ff;
-    --pink: #ec4899;
-    --blue: #3b82f6;
-    --pinl-light: #d68eff;
+    /* ---- expressive motion ---- */
+    --motion-spatial:.42s cubic-bezier(.2, 1.5, .4, 1);
+    --motion-effects:.3s cubic-bezier(.3, 0, .8, .15);
+    --motion-standard:.3s cubic-bezier(.2, 0, 0, 1);
 
-    --success: rgb(37, 249, 83);
-    --warning: #f59e0b;
-    --danger: #ef4444;
+    /* ---- typography ---- */
+    --font-display:"Outfit", system-ui, sans-serif;
+    --font-body:"Roboto Flex", system-ui, sans-serif;
+    --type-display-lg:40px; --type-headline:34px; --type-title-lg:22px;
+    --type-title:20px; --type-body-lg:15px; --type-body:14px; --type-label:12px;
 
-    --shadow-box: rgba(99, 102, 241, .15);
-
-    --btn-secondary: #334155;
-    --btn-secondary-hover: #475569;
-
-    --btn-warning-15: rgba(139, 92, 246, .15);
-
-    --btn-reject-18: rgba(239, 68, 68, .18);
-    --btn-reject-15: rgba(239, 68, 68, .15);
-
-    --btn-approv-18: rgba(34, 197, 94, .18);
-    --btn-approv-15: rgba(34, 197, 94, .15);
+    /* ---- elevation ---- */
+    --elev-1:0 1px 3px rgba(65,51,51,.14);
+    --elev-2:0 4px 12px rgba(65,51,51,.14);
+    --elev-3:0 12px 28px rgba(65,51,51,.18);
+    --elev-fab:0 8px 22px rgba(242,118,94,.42);
 }
+
+/* ===================== LIGHT SCHEME (default) ===================== */
+:root,
+[data-theme="light"] {
+    --primary:var(--p-40);            --on-primary:#FFFFFF;
+    --primary-container:var(--p-90);  --on-primary-container:var(--p-20);
+    --secondary:var(--p-30);          --on-secondary:#FFFFFF;
+    --secondary-container:var(--p-95);--on-secondary-container:var(--p-10);
+    --tertiary:var(--a-60);           --on-tertiary:#FFFFFF;
+    --tertiary-container:var(--a-90); --on-tertiary-container:var(--a-20);
+
+    --surface:var(--n-96);            --on-surface:var(--n-30);
+    --surface-dim:var(--n-90);        --surface-bright:var(--n-100);
+    --surface-container-lowest:#FFFFFF;
+    --surface-container-low:var(--n-94);
+    --surface-container:var(--n-90);
+    --surface-container-high:#E7D7C3;
+    --surface-container-highest:#DFCDB8;
+    --on-surface-variant:var(--n-40);
+    --outline:var(--n-60);            --outline-variant:var(--n-80);
+
+    --success:#2F6B4F; --success-container:#CFEBDC;
+    --warning:#8A6A18; --warning-container:#F8E7BC;
+    --error:#8E3024;   --error-container:#FBDCD6;
+    --inverse-surface:var(--n-10);    --on-inverse-surface:var(--n-94);
+    --scrim:rgba(33,26,25,.4);
+}
+
+/* ===================== DARK SCHEME =====================
+   body.dark: the door kiosk (attendance-check.js) toggles a class instead */
+[data-theme="dark"],
+body.dark {
+    --primary:var(--p-80);            --on-primary:var(--p-20);
+    --primary-container:#1D3F62;      --on-primary-container:var(--p-90);
+    --secondary:var(--p-70);          --on-secondary:var(--p-10);
+    --secondary-container:var(--p-30);--on-secondary-container:var(--p-95);
+    --tertiary:var(--a-80);           --on-tertiary:var(--a-20);
+    --tertiary-container:var(--a-30); --on-tertiary-container:var(--a-90);
+
+    --surface:var(--n-10);            --on-surface:var(--n-94);
+    --surface-dim:#181211;            --surface-bright:#4A3D3A;
+    --surface-container-lowest:#161110;
+    --surface-container-low:#2A2221;
+    --surface-container:#332A28;
+    --surface-container-high:#3E3331;
+    --surface-container-highest:#4A3D3A;
+    --on-surface-variant:#CFBDB4;
+    --outline:var(--n-60);            --outline-variant:#574742;
+
+    --success:#9FD8BA; --success-container:#24503B;
+    --warning:#EBCB7E; --warning-container:#5B4712;
+    --error:#F6B4A9;   --error-container:#6D2319;
+    --inverse-surface:var(--n-94);    --on-inverse-surface:var(--n-30);
+    --scrim:rgba(0,0,0,.6);
+    color-scheme: dark;
+}
+
+/* ===================== LEGACY ALIASES =====================
+   The page stylesheets were written against the old dark-purple palette.
+   Map every old name onto an MD3 role so they reskin without edits.
+   Declared on the same element as the schemes above, so they follow dark mode. */
+:root,
+[data-theme] {
+    --bg-dark:var(--surface);
+    --bg-card:var(--surface-container-low);
+    --bg-table:var(--surface-container-low);
+    --bg-form:var(--surface-container);
+    --bg-table-06:var(--surface-container);
+    --bg-table-015:var(--surface-container-high);
+    --bg-purple-025:var(--scrim);
+    --border:var(--outline-variant);
+
+    --text-white:var(--on-surface);
+    --text-light:var(--on-surface-variant);
+    --text-gray:var(--on-surface-variant);
+
+    --indigo:var(--primary);
+    --indigo-06:var(--primary);
+    --indigo-15:var(--primary-container);
+    --indigo-08:var(--surface-container);
+    --purple:var(--primary);
+    --purple-light:var(--primary);
+    --blue:var(--primary);
+    --pink:var(--tertiary);
+    --pinl-light:var(--tertiary);
+
+    --danger:var(--error);
+    --shadow-box:var(--outline-variant);
+
+    --btn-secondary:var(--surface-container-high);
+    --btn-secondary-hover:var(--surface-container-highest);
+    --btn-warning-15:var(--warning-container);
+    --btn-reject-18:var(--error-container);
+    --btn-reject-15:var(--error-container);
+    --btn-approv-18:var(--success-container);
+    --btn-approv-15:var(--success-container);
+}
+
+/* ===================== COMPONENT RECIPES ===================== */
+
+.md-btn {
+    display:inline-flex; align-items:center; gap:8px;
+    font:600 var(--type-body)/1 var(--font-body);
+    padding:14px 24px; border:0; border-radius:var(--shape-md);
+    background:var(--primary); color:var(--on-primary); cursor:pointer; text-decoration:none;
+    transition:border-radius var(--motion-spatial), background var(--motion-standard);
+}
+.md-btn:hover { border-radius:var(--shape-full); }
+.md-btn--accent { background:var(--tertiary); color:var(--on-tertiary); }
+.md-btn--tonal  { background:var(--primary-container); color:var(--on-primary-container); }
+.md-btn--outline{ background:transparent; color:var(--primary); border:1px solid var(--outline); }
+
+.md-fab {
+    width:64px; height:64px; border:0; border-radius:var(--shape-lg);
+    background:var(--tertiary); color:var(--on-tertiary);
+    display:grid; place-items:center; text-decoration:none;
+    box-shadow:var(--elev-fab); cursor:pointer;
+    transition:border-radius var(--motion-spatial), transform var(--motion-standard);
+}
+.md-fab:hover { border-radius:var(--shape-xxl); transform:translateY(-2px); }
+
+.md-card {
+    background:var(--surface-container-low); color:var(--on-surface);
+    border-radius:var(--shape-xl); padding:24px;
+}
+.md-card--accent { background:var(--tertiary-container); color:var(--on-tertiary-container); }
+.md-card--primary{ background:var(--primary-container); color:var(--on-primary-container); }
+
+.md-field {
+    background:var(--surface-container); border:1px solid transparent;
+    border-radius:var(--shape-md); padding:15px 18px;
+    font:500 var(--type-body-lg)/1.2 var(--font-body); color:var(--on-surface);
+}
+.md-field:focus-within { border-color:var(--primary); }
+
+.md-chip { font:700 var(--type-label)/1 var(--font-body); padding:6px 12px; border-radius:var(--shape-full); }
+.md-chip--ok   { color:var(--success); background:var(--success-container); }
+.md-chip--warn { color:var(--warning); background:var(--warning-container); }
+.md-chip--err  { color:var(--error);   background:var(--error-container); }
+.md-chip--info { color:var(--on-primary-container); background:var(--primary-container); }
+
+.md-icon {
+    font-family:"Material Symbols Rounded"; font-weight:normal; font-style:normal;
+    font-size:24px; line-height:1; letter-spacing:normal; text-transform:none;
+    white-space:nowrap; direction:ltr; -webkit-font-smoothing:antialiased;
+    font-variation-settings:'FILL' 0;
+}
+
+@keyframes md-spring-in { 0%{transform:scale(.9) translateY(8px);opacity:0} 60%{transform:scale(1.02);opacity:1} 100%{transform:scale(1)} }
+@keyframes md-sweep     { from{background-position:-40% 0} to{background-position:140% 0} }
+@keyframes md-pulse-ring{ 0%{transform:scale(.96);opacity:.55} 70%{transform:scale(1.12);opacity:0} 100%{opacity:0} }
+.md-enter { animation:md-spring-in .5s cubic-bezier(.2,1.4,.4,1) both; }
+@media (prefers-reduced-motion: reduce) { .md-enter { animation:none; } }

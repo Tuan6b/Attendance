@@ -58,6 +58,7 @@
         linear-gradient(135deg,
             var(--indigo-06),
             var(--purple));
+    color: var(--on-primary);
 }
 
 .employee-stat-card__icon i {
@@ -402,7 +403,7 @@
 
     font-weight: 600;
 
-    color: var(--text-white);
+    color: var(--on-primary);
 
     background: linear-gradient(to right, var(--indigo-06), var(--purple));
 

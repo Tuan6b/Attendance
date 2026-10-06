@@ -3,6 +3,8 @@ package com.attendenceSystem.module.faceid.entity;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import com.attendenceSystem.module.faceid.entity.enums.FaceIdAction;
 
@@ -61,10 +63,18 @@ public class FaceIdRecognition {
     @Column(name = "message", length = 500)
     private String message;
 
-    @Column(name = "request_payload", columnDefinition = "JSON")
+    /**
+     * Lưu chuỗi JSON đã serialize sẵn (xem FaceIdLogServiceImpl). Cột DB là kiểu {@code json}
+     * nên bắt buộc phải có {@code @JdbcTypeCode(SqlTypes.JSON)} — nếu không, Hibernate bind
+     * tham số này như {@code varchar} và Postgres từ chối với lỗi "column is of type json but
+     * expression is of type character varying", làm hỏng luôn transaction đang ghi điểm danh.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "request_payload", columnDefinition = "json")
     private String requestPayload;
 
-    @Column(name = "response_payload", columnDefinition = "JSON")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "response_payload", columnDefinition = "json")
     private String responsePayload;
 
     @Column(name = "captured_at")

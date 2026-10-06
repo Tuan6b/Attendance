@@ -70,11 +70,11 @@
     border-radius: 14px;
 
     background:
-        rgba(255, 255, 255, .05);
+        var(--surface-container);
 
-    border: 1px solid rgba(255, 255, 255, .08);
+    border: 1px solid var(--outline-variant);
 
-    color: white;
+    color: var(--on-surface);
 
     transition: .3s;
 }
@@ -86,11 +86,11 @@
     border-color: var(--indigo-06);
 
     box-shadow:
-        0 0 0 4px rgba(99, 102, 241, .15);
+        0 0 0 4px rgba(49, 91, 140, .15);
 }
 
 .form-group select option {
-    background: #0f172a;
+    background: var(--surface-container);
 }
 
 /* ===================================
@@ -124,7 +124,7 @@
 }
 
 .btn-primary {
-    color: white;
+    color: var(--on-primary);
 
     background:
         linear-gradient(to right,
@@ -137,12 +137,12 @@
 }
 
 .btn-secondary {
-    background: #334155;
-    color: white;
+    background: var(--surface-container-high);
+    color: var(--on-surface);
 }
 
 .btn-secondary:hover {
-    background: #475569;
+    background: var(--surface-container-highest);
 }
 
 /* ===================================
@@ -160,7 +160,7 @@
 
 .table thead {
     background:
-        rgba(255, 255, 255, .03);
+        var(--surface-container);
 }
 
 .table th {
@@ -176,10 +176,10 @@
 .table td {
     padding: 18px;
 
-    color: #e2e8f0;
+    color: var(--on-surface);
 
     border-bottom:
-        1px solid rgba(255, 255, 255, .04);
+        1px solid var(--outline-variant);
 }
 
 .table tbody tr {
@@ -188,7 +188,7 @@
 
 .table tbody tr:hover {
     background:
-        rgba(255, 255, 255, .03);
+        var(--surface-container);
 }
 
 /* ===================================
@@ -208,21 +208,21 @@
 
 .pending {
     background:
-        rgba(245, 158, 11, .15);
+        var(--warning-container);
 
     color: var(--warning);
 }
 
 .approved {
     background:
-        rgba(34, 197, 94, .15);
+        var(--success-container);
 
     color: var(--success);
 }
 
 .rejected {
     background:
-        rgba(239, 68, 68, .15);
+        var(--error-container);
 
     color: var(--danger);
 }
@@ -248,21 +248,21 @@
 
     cursor: pointer;
 
-    color: white;
+    color: var(--on-surface);
 
     text-decoration: none;
 
     background:
-        rgba(255, 255, 255, .05);
+        var(--surface-container);
 
-    border: 1px solid rgba(255, 255, 255, .08);
+    border: 1px solid var(--outline-variant);
 
     transition: .25s;
 }
 
 .btn-pagination:hover {
     background:
-        rgba(255, 255, 255, .08);
+        var(--surface-container-high);
 }
 
 .page-info {
@@ -280,11 +280,11 @@
 }
 
 ::-webkit-scrollbar-track {
-    background: #1e293b;
+    background: var(--surface-container-high);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #475569;
+    background: var(--surface-container-highest);
     border-radius: 8px;
 }
 /* ==========================
@@ -302,7 +302,7 @@
     width: 100%;
     height: 100%;
 
-    background: rgba(0, 0, 0, .75);
+    background: var(--scrim);
 
     justify-content: center;
     align-items: center;

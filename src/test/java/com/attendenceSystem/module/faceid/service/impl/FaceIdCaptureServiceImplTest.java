@@ -36,6 +36,7 @@ import com.attendenceSystem.module.faceid.entity.FaceProfile;
 import com.attendenceSystem.module.faceid.entity.FaceSample;
 import com.attendenceSystem.module.faceid.repository.FaceProfileRepository;
 import com.attendenceSystem.module.faceid.repository.FaceSampleRepository;
+import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
 import com.attendenceSystem.module.faceid.service.FaceAiClient;
 import com.attendenceSystem.module.faceid.service.FaceEmbeddingCacheService;
 import com.attendenceSystem.module.storage.provider.StorageProvider;
@@ -101,7 +102,7 @@ class FaceIdCaptureServiceImplTest {
         embedResult.embedding = "embedding";
         aiResponse.results = List.of(embedResult);
 
-        when(userRepository.findByUsername("HE001")).thenReturn(Optional.of(currentUser));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
         when(faceProfileRepository.findByUser(currentUser)).thenReturn(Optional.empty());
         when(faceProfileRepository.save(any(FaceProfile.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(faceSampleRepository.findByFaceProfile(any(FaceProfile.class))).thenReturn(List.of());
@@ -138,7 +139,7 @@ class FaceIdCaptureServiceImplTest {
         failedResult.message = "Không thấy mặt";
         aiResponse.results = List.of(failedResult);
 
-        when(userRepository.findByUsername("HE001")).thenReturn(Optional.of(currentUser));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
         when(faceProfileRepository.findByUser(currentUser)).thenReturn(Optional.of(faceProfile));
         when(faceSampleRepository.findByFaceProfile(faceProfile)).thenReturn(List.of());
         when(faceAiClient.embedBatch(any())).thenReturn(aiResponse);
@@ -164,7 +165,7 @@ class FaceIdCaptureServiceImplTest {
                 .sampleCount(1)
                 .build();
 
-        when(userRepository.findByUsername("HE001")).thenReturn(Optional.of(currentUser));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
         when(faceProfileRepository.findByUser(currentUser)).thenReturn(Optional.of(faceProfile));
 
         LatestFaceResponse response = service.getLatestFace();
@@ -187,7 +188,7 @@ class FaceIdCaptureServiceImplTest {
                 .sampleCount(1)
                 .build();
 
-        when(userRepository.findByUsername("HE001")).thenReturn(Optional.of(currentUser));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
         when(faceProfileRepository.findByUser(currentUser)).thenReturn(Optional.of(faceProfile));
         when(faceProfileRepository.save(any(FaceProfile.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -220,7 +221,7 @@ class FaceIdCaptureServiceImplTest {
                 .imagePath("/uploads/face_samples/1/face_1_1.jpg")
                 .build();
 
-        when(userRepository.findByUsername("HE001")).thenReturn(Optional.of(currentUser));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
         when(faceSampleRepository.findById(10L)).thenReturn(Optional.of(sample));
 
         service.deleteFaceSample(10L);
@@ -247,7 +248,7 @@ class FaceIdCaptureServiceImplTest {
                 .imagePath("/uploads/face_samples/2/face_2_1.jpg")
                 .build();
 
-        when(userRepository.findByUsername("HE001")).thenReturn(Optional.of(currentUser));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(currentUser));
         when(faceSampleRepository.findById(10L)).thenReturn(Optional.of(sample));
 
         assertThrows(AccessDeniedException.class, () -> service.deleteFaceSample(10L));
@@ -255,6 +256,17 @@ class FaceIdCaptureServiceImplTest {
         verify(faceSampleRepository, never()).deleteById(10L);
         verify(storageProvider, never()).delete(anyString());
         verify(faceEmbeddingCacheService, never()).invalidate();
+    }
+
+    @Test
+    void checkPoseWhenAiUnavailableReturnsFailure() {
+        when(faceAiClient.checkPose(anyString()))
+                .thenThrow(new FaceAiUnavailableException("Connection refused"));
+
+        FaceAiClient.PoseResult result = service.checkPose("sample-image");
+
+        assertFalse(result.ok);
+        assertEquals("Không thể kết nối hệ thống AI nhận diện khuôn mặt", result.message);
     }
 
     private static String dataUrl(String content) {

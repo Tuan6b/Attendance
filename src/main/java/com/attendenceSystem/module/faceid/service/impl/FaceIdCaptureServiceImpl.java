@@ -15,6 +15,8 @@ import com.attendenceSystem.module.faceid.dto.response.FaceCaptureResponse;
 import com.attendenceSystem.module.faceid.dto.response.LatestFaceResponse;
 import com.attendenceSystem.module.faceid.entity.FaceProfile;
 import com.attendenceSystem.module.faceid.entity.FaceSample;
+import com.attendenceSystem.module.faceid.exception.FaceAiException;
+import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
 import com.attendenceSystem.module.faceid.repository.FaceProfileRepository;
 import com.attendenceSystem.module.faceid.repository.FaceSampleRepository;
 import com.attendenceSystem.module.faceid.service.FaceAiClient;
@@ -112,8 +114,20 @@ public class FaceIdCaptureServiceImpl implements FaceIdCaptureService {
     public FaceAiClient.PoseResult checkPose(String imageBase64) {
         try {
             return faceAiClient.checkPose(imageBase64);
+        } catch (FaceAiUnavailableException e) {
+            log.warn("Kiểm tra tư thế không thực hiện được do Face AI không khả dụng: {}", e.getMessage());
+            FaceAiClient.PoseResult error = new FaceAiClient.PoseResult();
+            error.ok = false;
+            error.message = "Không thể kết nối hệ thống AI nhận diện khuôn mặt";
+            return error;
+        } catch (FaceAiException e) {
+            log.warn("Lỗi dịch vụ Face AI khi kiểm tra tư thế: {}", e.getMessage());
+            FaceAiClient.PoseResult error = new FaceAiClient.PoseResult();
+            error.ok = false;
+            error.message = "Lỗi xử lý tư thế từ dịch vụ AI";
+            return error;
         } catch (Exception e) {
-            log.error("Lỗi kiểm tra tư thế", e);
+            log.error("Lỗi không xác định khi kiểm tra tư thế", e);
             FaceAiClient.PoseResult error = new FaceAiClient.PoseResult();
             error.ok = false;
             error.message = "Không kết nối được AI";

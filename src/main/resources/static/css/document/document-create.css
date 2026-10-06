@@ -27,7 +27,7 @@
 
     font-weight:700;
 
-    color:white;
+    color: var(--on-surface);
 }
 
 .card-body{
@@ -135,7 +135,7 @@ input[type="file"]{
 
     font-weight:600;
 
-    color:white;
+    color: var(--on-primary);
 
     background:linear-gradient(to right, var(--indigo-06), var(--purple));
 

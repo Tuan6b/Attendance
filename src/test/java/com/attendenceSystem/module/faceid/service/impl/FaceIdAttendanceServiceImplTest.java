@@ -54,7 +54,25 @@ class FaceIdAttendanceServiceImplTest {
         assertEquals("Thiếu ảnh", response.getMessage());
     }
 
+    @org.junit.jupiter.api.Test
+    void identifyWhenAiUnavailableThrowsFaceAiUnavailableException() {
+        FaceAiClient faceAiClient = mock(FaceAiClient.class);
+        org.mockito.Mockito.when(faceAiClient.checkPose(org.mockito.ArgumentMatchers.anyString()))
+                .thenThrow(new com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException("Connection refused"));
+
+        FaceIdAttendanceServiceImpl service = createService(faceAiClient);
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException.class,
+                () -> service.identify("some-image")
+        );
+    }
+
     private static FaceIdAttendanceServiceImpl createService() {
+        return createService(mock(FaceAiClient.class));
+    }
+
+    private static FaceIdAttendanceServiceImpl createService(FaceAiClient faceAiClient) {
         return new FaceIdAttendanceServiceImpl(
                 mock(AttendanceService.class),
                 mock(AttendanceActionService.class),
@@ -64,7 +82,7 @@ class FaceIdAttendanceServiceImplTest {
                 mock(AttendanceRecordRepository.class),
                 mock(FaceProfileRepository.class),
                 mock(FaceSampleRepository.class),
-                mock(FaceAiClient.class),
+                faceAiClient,
                 mock(FaceEmbeddingCacheService.class)
         );
     }

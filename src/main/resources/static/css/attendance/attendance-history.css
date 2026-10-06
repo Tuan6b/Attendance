@@ -34,7 +34,7 @@
 }
 
 .profile-info h3 {
-    color: white;
+    color: var(--on-surface);
 
     font-size: 1.1rem;
     font-weight: 700;
@@ -163,7 +163,7 @@
 
     font-weight: 600;
 
-    color: var(--text-white);
+    color: var(--on-primary);
 
     background: linear-gradient(to right, var(--indigo-06), var(--purple));
 

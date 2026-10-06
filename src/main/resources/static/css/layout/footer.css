@@ -38,9 +38,10 @@ footer {
     font-size: 1.8rem;
     font-weight: 700;
 
+    font-family: var(--font-display, inherit);
     background: linear-gradient(90deg,
-            #4c318b,
-            #b794ff);
+            var(--primary, #4c318b),
+            var(--tertiary, #b794ff));
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -92,7 +93,7 @@ footer {
     padding: 20px;
 
     color: var(--text-light);
-    background-color: #161237;
+    background-color: var(--surface-container-low, #161237);
     
     border-top: 1px solid var(--bg-table-06);
 }
