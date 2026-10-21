@@ -46,6 +46,7 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Thiếu POSTGRES_PASSWORD trong .env}
       FACE_AI_BASE_URL: http://face-ai:8002
       FACE_AI_API_KEY: ${FACE_AI_API_KEY:?Thiếu FACE_AI_API_KEY trong .env}
+      FACE_ID_API_KEY: ${FACE_ID_API_KEY:?Thiếu FACE_ID_API_KEY trong .env}
     depends_on:
       - postgres
       - face-ai
@@ -62,6 +63,8 @@ services:
       ATTENDANCE_BASE_URL: http://backend:9090
       DB_URL: jdbc:postgresql://postgres:5432/attendance?currentSchema=mobile_auth,public
       FACE_AI_API_KEY: ${FACE_AI_API_KEY:?Thiếu FACE_AI_API_KEY trong .env}
+      # Cùng key với FACE_ID_API_KEY của backend (header X-API-Key khi ghi chấm công)
+      ATTENDANCE_API_KEY: ${FACE_ID_API_KEY:?Thiếu FACE_ID_API_KEY trong .env}
     volumes:
       # Read-only volume for JWT keystore
       - ../mobileBackend/secrets:/app/secrets:ro
