@@ -3,6 +3,8 @@ package com.attendenceSystem.exception;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -72,6 +74,13 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<String> handleBadRequest(final RuntimeException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());
+    }
+
+    /** Body {@code @Valid} sai → 400 kèm lỗi đầu tiên, thay vì rơi vào handler 500 bên dưới. */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<String> handleInvalidBody(final MethodArgumentNotValidException ex) {
+        FieldError error = ex.getBindingResult().getFieldError();
+        return ResponseEntity.badRequest().body(error != null ? error.getDefaultMessage() : "Dữ liệu không hợp lệ");
     }
 
     @ExceptionHandler(FaceAiUnavailableException.class)

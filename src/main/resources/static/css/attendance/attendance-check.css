@@ -993,6 +993,8 @@ body.dark .stat-card {
 .offline-actions {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
     flex-shrink: 0;
 }
 

@@ -44,6 +44,10 @@ public class FaceIdRecognition {
     @Column(name = "manual", nullable = false)
     private Boolean manual = false;
 
+    /** users.id của quản lý đã thao tác điểm danh thủ công; null với bản ghi qua AI. */
+    @Column(name = "performed_by")
+    private Long performedBy;
+
     @Column(name = "camera_id", length = 50)
     private String cameraId;
 

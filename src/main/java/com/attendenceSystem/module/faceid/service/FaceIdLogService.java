@@ -21,5 +21,6 @@ public interface FaceIdLogService {
             FaceIdAction action,
             String message,
             AttendanceResponse attendance,
-            LocalDateTime timestamp);
+            LocalDateTime timestamp,
+            Long performedBy);
 }

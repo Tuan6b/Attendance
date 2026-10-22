@@ -29,6 +29,7 @@ import com.attendenceSystem.module.faceid.service.FaceAiClient;
 import com.attendenceSystem.module.faceid.service.FaceIdAttendanceService;
 import com.attendenceSystem.module.faceid.service.FaceIdCaptureService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -148,7 +149,7 @@ public class FaceIdApiController {
     
     @PostMapping("/attendance/manual")
     public ResponseEntity<FaceIdAttendanceResponse> processManualAttendance(
-            @RequestBody FaceIdManualAttendanceRequest request) {
+            @Valid @RequestBody FaceIdManualAttendanceRequest request) {
 
         FaceIdAttendanceResponse response = faceIdAttendanceService.processManualAttendance(request);
         return response.success() ? ResponseEntity.ok(response) : ResponseEntity.badRequest().body(response);

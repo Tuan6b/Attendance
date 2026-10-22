@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,7 +45,10 @@ import com.attendenceSystem.module.faceid.service.FaceEmbeddingEntry;
 import com.attendenceSystem.module.faceid.service.FaceIdAttendanceService;
 import com.attendenceSystem.module.faceid.service.FaceIdLogService;
 import com.attendenceSystem.module.user.entity.User;
+import com.attendenceSystem.module.user.entity.enums.Role;
+import com.attendenceSystem.module.user.entity.enums.Status;
 import com.attendenceSystem.module.user.repository.UserRepository;
+import com.attendenceSystem.util.SecurityUtil;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
@@ -309,6 +313,11 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             log.warn(message);
             return buildManualResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         }
+        if (user.getStatus() != Status.ACTIVE) {
+            String message = "Tài khoản nhân viên không hoạt động: " + request.getEmployeeCode();
+            log.warn(message);
+            return buildManualResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
+        }
 
         // 3. Xác định check-in/check-out giống hệt luồng AI
         FaceIdAction action;
@@ -398,9 +407,10 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
 
     @Override
     public List<EmployeeDirectoryResponse> listEmployeesForManualAttendance() {
-        // TODO: nếu User có trường trạng thái (active) hoặc role (employee/admin),
-        // lọc thêm ở đây để tránh lộ danh sách toàn bộ tài khoản hệ thống.
-        return userRepository.findAll().stream()
+        // Chỉ tài khoản ACTIVE — khớp với điều kiện ở processManualAttendance. Lọc theo các role
+        // enum Role biết: DB có thể có tài khoản máy quét role = 4 (mobile gateway) mà Role chưa có,
+        // nạp dòng đó sẽ lỗi converter (500), và máy quét cũng không phải nhân viên để chọn.
+        return userRepository.findByStatusAndRoleIn(Status.ACTIVE, EnumSet.allOf(Role.class)).stream()
                 .map(u -> EmployeeDirectoryResponse.builder()
                         .code(u.getUsername())
                         .fullName(u.getFullName())
@@ -419,7 +429,10 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             LocalDateTime timestamp,
             AttendanceResponse attendance) {
 
-        faceIdLogService.saveManualRecognitionLog(request, action, message, attendance, timestamp);
+        // Lấy ở đây (thread của request): saveManualRecognitionLog chạy @Async, không còn SecurityContext.
+        // SecurityConfig chỉ cho ADMIN/MANAGER đã đăng nhập gọi luồng thủ công.
+        Long performedBy = SecurityUtil.isAuthenticated() ? SecurityUtil.getCurrentUserId() : null;
+        faceIdLogService.saveManualRecognitionLog(request, action, message, attendance, timestamp, performedBy);
 
         return FaceIdAttendanceResponse.builder()
                 .success(action != FaceIdAction.FAILED)

@@ -1,6 +1,7 @@
 package com.attendenceSystem.module.user.repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,6 +61,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
         List<User> findByDepartmentAndRoleNot(Department department, Role role);
 
         List<User> findByRoleNot(Role role);
+
+        List<User> findByStatusAndRoleIn(Status status, Collection<Role> roles);
 
         Page<AdminAccountManageList> findBy(Pageable pageable);
 

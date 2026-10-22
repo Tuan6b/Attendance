@@ -74,7 +74,7 @@ public class FaceIdLogServiceImpl implements FaceIdLogService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
     public void saveManualRecognitionLog(FaceIdManualAttendanceRequest request, FaceIdAction action, String message,
-            AttendanceResponse attendance, LocalDateTime timestamp) {
+            AttendanceResponse attendance, LocalDateTime timestamp, Long performedBy) {
         try {
             ObjectNode requestJson = objectMapper.valueToTree(request);
             requestJson.remove("imageBase64");
@@ -91,6 +91,7 @@ public class FaceIdLogServiceImpl implements FaceIdLogService {
                     .studentCode(request.getEmployeeCode())
                     .confidence(null)
                     .manual(true)
+                    .performedBy(performedBy)
                     .cameraId(request.getCameraId())
                     .trackingId(uniqueTrackingId(request.getTrackingId()))
                     .action(action)

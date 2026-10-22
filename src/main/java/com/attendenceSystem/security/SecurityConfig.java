@@ -66,6 +66,11 @@ public class SecurityConfig {
                                 Routes.API + Routes.Otp.ROOT + "/**").permitAll()
                         // Kiosk điểm danh không cần đăng nhập
                         .requestMatchers(Routes.Attendance.ROOT + Routes.Attendance.CHECK).permitAll()
+                        // Điểm danh thủ công (chọn tên, không qua AI) chỉ quản lý được làm. Phải đứng
+                        // TRƯỚC dòng permitAll /api/face-id/** bên dưới vì Spring lấy rule khớp đầu tiên.
+                        .requestMatchers(Routes.API + Routes.FaceId.ROOT + "/attendance/manual",
+                                Routes.API + Routes.FaceId.ROOT + "/employees")
+                        .hasAnyRole("ADMIN", "MANAGER")
                         // Face ID đăng ký/điểm danh không cần đăng nhập
                         .requestMatchers(Routes.FaceId.ROOT + "/**",
                                 Routes.API + Routes.FaceId.ROOT + "/**").permitAll()

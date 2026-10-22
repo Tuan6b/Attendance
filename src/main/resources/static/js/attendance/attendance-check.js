@@ -273,6 +273,12 @@ async function postJson(url, body) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
+    if (res.redirected && new URL(res.url).pathname === '/auth/login') {
+        // Phiên hết hạn → server redirect về trang đăng nhập (xem method.js)
+        const error = new Error('Phiên đăng nhập đã hết hạn');
+        error.status = 401;
+        throw error;
+    }
     const text = await res.text();
     let data;
     try {
@@ -282,9 +288,25 @@ async function postJson(url, body) {
     }
     if (!res.ok){
         const errorMessage = (data && data.message) ? data.message : ('HTTP ' + res.status);
-        throw new Error(errorMessage);
+        const error = new Error(errorMessage);
+        error.status = res.status;
+        throw error;
     }
     return data;
+}
+
+/** Điểm danh thủ công chỉ cho ADMIN/MANAGER đã đăng nhập (SecurityConfig) → 401/403 nghĩa là chưa có quản lý. */
+function isManagerRequired(error) {
+    return error && (error.status === 401 || error.status === 403);
+}
+
+/** Đăng xuất phiên quản lý trên máy kiosk, để không ai dùng tiếp chế độ thủ công. */
+async function logoutManager() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+        console.warn('Không thể đăng xuất quản lý:', error);
+    }
 }
 
 function showAttendanceMessage(message, type) {
@@ -346,14 +368,25 @@ function onIdentifyFailure() {
 
 function initOfflineFlowEvents() {
     const btnReconnect = document.getElementById('btnReconnect');
+    const btnLockManual = document.getElementById('btnLockManual');
     const btnManualCapture = document.getElementById('btnManualCapture');
     const btnBackToList = document.getElementById('btnBackToList');
     const employeeSearch = document.getElementById('employeeSearch');
 
     if (btnReconnect) {
-        btnReconnect.addEventListener('click', () => {
-            // Kết nối lại AI = tải lại trang, quay về chế độ online từ đầu
+        btnReconnect.addEventListener('click', async () => {
+            // Kết nối lại AI = tải lại trang, quay về chế độ online từ đầu. Đăng xuất quản lý
+            // trước để phiên quản lý không còn mở trên máy kiosk.
+            await logoutManager();
             window.location.reload();
+        });
+    }
+
+    if (btnLockManual) {
+        btnLockManual.addEventListener('click', async () => {
+            await logoutManager();
+            backToEmployeeList();
+            loadEmployeeList();
         });
     }
 
@@ -401,10 +434,34 @@ async function loadEmployeeList() {
         renderEmployeeList(employeeCache);
     } catch (error) {
         console.error('Không thể tải danh sách nhân viên:', error);
+        if (isManagerRequired(error)) {
+            renderManagerLoginPrompt();
+            return;
+        }
         if (listEl) {
             listEl.innerHTML = '<div class="employee-empty">Không thể tải danh sách nhân viên. Vui lòng thử "Kết nối lại".</div>';
         }
     }
+}
+
+/**
+ * Chưa có quản lý đăng nhập: mở trang đăng nhập ở tab mới (tab kiosk giữ nguyên camera),
+ * đăng nhập xong quay lại bấm "Đã đăng nhập" — cookie phiên dùng chung giữa các tab.
+ */
+function renderManagerLoginPrompt() {
+    employeeCache = [];
+    const listEl = document.getElementById('employeeList');
+    if (!listEl) return;
+    listEl.innerHTML = `
+        <div class="employee-empty">
+            Điểm danh thủ công cần quản lý (MANAGER/ADMIN) đăng nhập.<br>
+            <a href="/auth/login" target="_blank" rel="noopener">Đăng nhập quản lý</a>
+            · <a href="#" id="btnManagerRetry">Đã đăng nhập, tải danh sách</a>
+        </div>`;
+    document.getElementById('btnManagerRetry').addEventListener('click', (event) => {
+        event.preventDefault();
+        loadEmployeeList();
+    });
 }
 
 function normalizeText(text) {
@@ -516,7 +573,14 @@ async function manualCaptureAttendance() {
         showAttendanceMessage(res.message || 'Điểm danh thủ công thành công', res.success !== false ? 'success' : 'error');
         setTimeout(backToEmployeeList, 1500);
     } catch (error) {
-        showAttendanceMessage('Lỗi điểm danh: ' + error.message, 'error');
+        if (isManagerRequired(error)) {
+            // Phiên quản lý đã hết hạn hoặc bị khoá giữa chừng → quay lại danh sách để đăng nhập lại
+            showAttendanceMessage('Cần quản lý đăng nhập để điểm danh thủ công.', 'error');
+            backToEmployeeList();
+            renderManagerLoginPrompt();
+        } else {
+            showAttendanceMessage('Lỗi điểm danh: ' + error.message, 'error');
+        }
     } finally {
         if (btnManualCapture) btnManualCapture.disabled = false;
     }
