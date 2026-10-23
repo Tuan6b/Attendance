@@ -29,7 +29,7 @@ nhân viên nào mà không cần mặt, không cần mật khẩu.
 | C1 | 🔴 Nghiêm trọng | ✅ đã sửa · `POST /api/face-id/attendance/manual` chấm công cho bất kỳ ai, không cần đăng nhập, không cần mặt | Attendance |
 | C2 | 🔴 Nghiêm trọng | ✅ đã sửa · `POST /api/face-id/attendance` không cần đăng nhập và **không kiểm tra người thật**, nên dùng ảnh in hoặc ảnh tải về là qua | Attendance |
 | C3 | 🔴 Nghiêm trọng | ✅ đã sửa · Ảnh khuôn mặt đăng ký của mọi nhân viên tải được công khai qua URL đoán trước `/uploads/face_samples/{id}/face_{id}_{n}.jpg` | Attendance |
-| C4 | 🔴 Nghiêm trọng | Tài khoản máy quét `checker01` / `Admin@123` nằm cứng trong APK, gửi qua HTTP thường, **trùng mật khẩu admin** ghi trong ONBOARDING | App Android |
+| C4 | 🔴 Nghiêm trọng | ✅ đã sửa code (còn đổi mật khẩu) · Tài khoản máy quét `checker01` / `Admin@123` nằm cứng trong APK, gửi qua HTTP thường, **trùng mật khẩu admin** ghi trong ONBOARDING | App Android |
 | C5 | 🔴 Nghiêm trọng | Xác thực OTP quên mật khẩu trên web không giới hạn số lần nhập sai, nên dò được mã và chiếm được tài khoản bất kỳ (kể cả ADMIN) | Attendance |
 | H1 | 🟠 Cao | ✅ đã sửa · `GET /api/face-id/employees` và `POST /api/face-id/identify` không cần đăng nhập: lộ toàn bộ username, họ tên, và cho phép tra danh tính từ ảnh mặt | Attendance |
 | H2 | 🟠 Cao | Toàn bộ đường mobile chạy HTTP thường (không TLS), lộ mật khẩu, refresh token và ảnh mặt trên LAN | App + gateway |
@@ -126,6 +126,17 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
   hoặc dùng client_credentials riêng cho từng thiết bị. Lưu refresh token mã hoá bằng khoá Android Keystore.
   Ràng buộc token với thiết bị (ví dụ mTLS hoặc Play Integrity) nếu cần chống giả máy quét.
   Đổi mật khẩu `admin`, `checker01` và các tài khoản demo **ngay**, không dùng chung mật khẩu.
+- **Trạng thái:** ✅ phần code đã sửa trên nhánh `claude/fix-c4-device-activation` của repo `DxLabAttendance`.
+  - **Bỏ tài khoản gắn cứng:** APK không còn tài khoản máy quét (đã kiểm tra dex của bản build).
+  - **Màn kích hoạt:** lần đầu chạy, hoặc khi server thu hồi phiên, app hiện màn kích hoạt. Quản trị viên nhập tài khoản
+    CHECKER một lần; app không lưu mật khẩu mà chỉ giữ refresh token và tự xoay token. Phiên hết hạn hoặc bị thu hồi
+    thì app quay lại màn kích hoạt, không tự đăng nhập lại.
+  - **Bản đơn giản:** chưa có mã kích hoạt dùng 1 lần cho từng máy, chưa mã hoá token bằng Keystore, chưa ràng buộc token với thiết bị.
+  - **Còn phải làm tay (vận hành):** `Admin@123` vẫn nằm trong lịch sử git của `DxLabAttendance` (commit `170d04f`) và trong ONBOARDING.
+    - Đổi mật khẩu `checker01` và `admin`.
+    - Đổi mật khẩu **không** thu hồi refresh token đã cấp cho app. Phải chạy thêm
+      `DELETE FROM mobile_auth.mobile_refresh_token WHERE username = 'checker01'`, hoặc đặt lại mật khẩu qua
+      `/api/v1/auth/password/reset` của gateway (hàm này tự gọi `revokeAll`), rồi kích hoạt lại các máy quét.
 
 ### C5. OTP quên mật khẩu trên web dò được
 
