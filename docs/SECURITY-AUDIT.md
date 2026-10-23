@@ -30,7 +30,7 @@ nhân viên nào mà không cần mặt, không cần mật khẩu.
 | C2 | 🔴 Nghiêm trọng | ✅ đã sửa · `POST /api/face-id/attendance` không cần đăng nhập và **không kiểm tra người thật**, nên dùng ảnh in hoặc ảnh tải về là qua | Attendance |
 | C3 | 🔴 Nghiêm trọng | ✅ đã sửa · Ảnh khuôn mặt đăng ký của mọi nhân viên tải được công khai qua URL đoán trước `/uploads/face_samples/{id}/face_{id}_{n}.jpg` | Attendance |
 | C4 | 🔴 Nghiêm trọng | ✅ đã sửa code (còn đổi mật khẩu) · Tài khoản máy quét `checker01` / `Admin@123` nằm cứng trong APK, gửi qua HTTP thường, **trùng mật khẩu admin** ghi trong ONBOARDING | App Android |
-| C5 | 🔴 Nghiêm trọng | Xác thực OTP quên mật khẩu trên web không giới hạn số lần nhập sai, nên dò được mã và chiếm được tài khoản bất kỳ (kể cả ADMIN) | Attendance |
+| C5 | 🔴 Nghiêm trọng | ✅ đã sửa · Xác thực OTP quên mật khẩu trên web không giới hạn số lần nhập sai, nên dò được mã và chiếm được tài khoản bất kỳ (kể cả ADMIN) | Attendance |
 | H1 | 🟠 Cao | ✅ đã sửa · `GET /api/face-id/employees` và `POST /api/face-id/identify` không cần đăng nhập: lộ toàn bộ username, họ tên, và cho phép tra danh tính từ ảnh mặt | Attendance |
 | H2 | 🟠 Cao | Toàn bộ đường mobile chạy HTTP thường (không TLS), lộ mật khẩu, refresh token và ảnh mặt trên LAN | App + gateway |
 | H3 | 🟠 Cao | CSRF bị tắt toàn cục trên app dùng cookie session | Attendance |
@@ -149,6 +149,15 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
   Gateway mobile giới hạn 5 lần (`MobileAuthController.MAX_OTP_FAILURES`), nhưng đường web không có giới hạn nào nên dùng đường web là bỏ qua được.
 - **Sửa:** Đếm số lần sai **trên bản ghi OTP** trong `OtpServiceImpl.verify` (thêm cột `failed_attempts`, sai 5 lần thì `used = true`).
   Như vậy mọi đường gọi (web, `/api/otp/verify`, gateway) đều được bảo vệ ở cùng một chỗ. So mã bằng `MessageDigest.isEqual`.
+- **Trạng thái:** ✅ đã sửa trên nhánh `claude/fix-c1-manual-attendance`.
+  - **Giới hạn lượt nhập:** bảng `otp` có thêm cột `attempts` (mặc định 0). `OtpServiceImpl.verify` ghi nhận lượt nhập **trước** khi so mã,
+    bằng một câu `UPDATE ... WHERE attempts < 5` nguyên tử chạy trong transaction riêng (REQUIRES_NEW), nên lượt đếm vẫn được lưu
+    dù transaction của form web bị rollback. Hết 5 lượt thì mã đó bị từ chối, kể cả khi nhập đúng; phải xin mã mới (cooldown 90 giây).
+  - **So mã:** dùng `MessageDigest.isEqual`, không lộ thông tin qua thời gian so sánh.
+  - **Kiểm tra trên app thật:** qua `/api/otp/verify`, 5 lần sai rồi nhập mã đúng vẫn bị từ chối. Qua form web, lượt sai vẫn được đếm,
+    và nhập đúng ngay sau 1 lần sai thì vẫn đổi được mật khẩu.
+  - **Chưa làm:** giới hạn theo IP hoặc tài khoản cho việc gửi OTP (H4). Mỗi vòng 90 giây kẻ tấn công vẫn thử được 5 lần,
+    khoảng 1/200.000 cơ hội trúng mỗi vòng.
 
 ---
 

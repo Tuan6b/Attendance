@@ -1,5 +1,7 @@
 package com.attendenceSystem.module.otp.service.impl;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -33,6 +35,7 @@ public class OtpServiceImpl implements OtpService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long RESEND_COOLDOWN_SECONDS = 90;
+    private static final int MAX_ATTEMPTS = 5;
 
     @Transactional
     @Override
@@ -60,7 +63,10 @@ public class OtpServiceImpl implements OtpService {
         return OtpResponseMapper.fromEntity(savedOtp);
     }
 
-    @Transactional
+    // noRollbackFor: nhập sai là kết quả bình thường, không được đánh dấu rollback-only transaction của
+    // caller (AuthServiceImpl.verifyOtp bắt lỗi rồi trả false; nếu bị đánh dấu thì lúc commit sẽ ném
+    // UnexpectedRollbackException).
+    @Transactional(noRollbackFor = {OtpNotFoundException.class, OtpExpiredException.class, OtpInvalidException.class})
     @Override
     public OtpResponse verify(final VerifyOtpRequest request) {
         Otp otp = otpRepository.findTopByDestinationAndPurposeAndUsedFalseOrderByCreatedAtDesc(
@@ -71,7 +77,14 @@ public class OtpServiceImpl implements OtpService {
             throw new OtpExpiredException("Mã OTP đã hết hạn. Vui lòng gửi lại OTP mới.");
         }
 
-        if (!otp.getCode().equals(request.getCode())) {
+        // Chống dò mã 6 số: mỗi mã chỉ được nhập MAX_ATTEMPTS lần (đếm TRƯỚC khi so, nguyên tử trong DB),
+        // áp cho mọi đường gọi (form web, /api/otp/verify, mobile gateway). Hết lượt → phải xin mã mới.
+        if (otpRepository.registerAttempt(otp.getId(), MAX_ATTEMPTS) == 0) {
+            throw new OtpInvalidException("Nhập sai mã OTP quá nhiều lần. Vui lòng yêu cầu mã mới.");
+        }
+
+        if (request.getCode() == null || !MessageDigest.isEqual(
+                otp.getCode().getBytes(StandardCharsets.UTF_8), request.getCode().getBytes(StandardCharsets.UTF_8))) {
             throw new OtpInvalidException("Mã OTP không chính xác.");
         }
 

@@ -40,6 +40,10 @@ public class Otp {
     private LocalDateTime createdAt;
     @Column(name = "used", nullable = false)
     private boolean used;
+    /** Số lần đã nhập mã (kể cả lần đúng) — chặn dò mã, xem OtpServiceImpl.verify. */
+    @Builder.Default
+    @Column(name = "attempts", nullable = false, columnDefinition = "integer default 0")
+    private int attempts = 0;
 
     public boolean isExpired() {
         return LocalDateTime.now().isAfter(expiredAt);
