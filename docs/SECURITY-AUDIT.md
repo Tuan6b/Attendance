@@ -28,7 +28,7 @@ nhân viên nào mà không cần mặt, không cần mật khẩu.
 |---|---|---|---|
 | C1 | 🔴 Nghiêm trọng | ✅ đã sửa · `POST /api/face-id/attendance/manual` chấm công cho bất kỳ ai, không cần đăng nhập, không cần mặt | Attendance |
 | C2 | 🔴 Nghiêm trọng | ✅ đã sửa · `POST /api/face-id/attendance` không cần đăng nhập và **không kiểm tra người thật**, nên dùng ảnh in hoặc ảnh tải về là qua | Attendance |
-| C3 | 🔴 Nghiêm trọng | Ảnh khuôn mặt đăng ký của mọi nhân viên tải được công khai qua URL đoán trước `/uploads/face_samples/{id}/face_{id}_{n}.jpg` | Attendance |
+| C3 | 🔴 Nghiêm trọng | ✅ đã sửa · Ảnh khuôn mặt đăng ký của mọi nhân viên tải được công khai qua URL đoán trước `/uploads/face_samples/{id}/face_{id}_{n}.jpg` | Attendance |
 | C4 | 🔴 Nghiêm trọng | Tài khoản máy quét `checker01` / `Admin@123` nằm cứng trong APK, gửi qua HTTP thường, **trùng mật khẩu admin** ghi trong ONBOARDING | App Android |
 | C5 | 🔴 Nghiêm trọng | Xác thực OTP quên mật khẩu trên web không giới hạn số lần nhập sai, nên dò được mã và chiếm được tài khoản bất kỳ (kể cả ADMIN) | Attendance |
 | H1 | 🟠 Cao | ✅ đã sửa · `GET /api/face-id/employees` và `POST /api/face-id/identify` không cần đăng nhập: lộ toàn bộ username, họ tên, và cho phép tra danh tính từ ảnh mặt | Attendance |
@@ -36,6 +36,7 @@ nhân viên nào mà không cần mặt, không cần mật khẩu.
 | H3 | 🟠 Cao | CSRF bị tắt toàn cục trên app dùng cookie session | Attendance |
 | H4 | 🟠 Cao | `/api/otp/send` và `/api/otp/verify` mở công khai: gửi mail tới địa chỉ tuỳ ý, thử mã OTP không giới hạn | Attendance |
 | H5 | 🟠 Cao | ✅ đã sửa · Trang duyệt khuôn mặt `/face-id` (danh sách, accept, reject) mở cho người chưa đăng nhập | Attendance |
+| H6 | 🟠 Cao | Ai đã đăng nhập cũng đọc được mọi báo cáo qua `GET /api/report/{id}` (IDOR) | Attendance |
 | M1–M8 | 🟡 Trung bình | Secret bị commit, role CHECKER không tồn tại bên Attendance, quyền DB rộng, app không có kiosk mode... | Nhiều chỗ |
 
 Ba việc nên sửa ngay, xếp theo thứ tự: **(1)** khoá `/api/face-id/**` và `/uploads/**`, **(2)** giới hạn số lần nhập
@@ -93,6 +94,21 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
   Ghép với C2 là chấm công hộ được cho bất kỳ ai.
 - **Sửa:** Bỏ `/uploads/**` khỏi `permitAll`. Ảnh mặt và ảnh bằng chứng phục vụ qua controller có kiểm tra quyền (chủ ảnh, MANAGER hoặc ADMIN).
   Đặt tên file ngẫu nhiên (UUID) thay vì theo `userId`.
+- **Trạng thái:** ✅ đã sửa trên nhánh `claude/fix-c1-manual-attendance`.
+  - **Bỏ truy cập công khai:** gỡ resource handler public (`WebConfig`) và `permitAll` của `/uploads/**`.
+  - **Phục vụ qua controller:** `UploadController` phục vụ `/uploads/**` (URL giữ nguyên) sau khi đăng nhập, kiểm tra quyền theo loại file:
+    - `face_samples/{userId}` và `attendance_evidence/{userId}`: chỉ chủ ảnh, MANAGER, ADMIN;
+    - `reports/`: ai đã đăng nhập cũng xem được (xem H6);
+    - thư mục khác: 404.
+  - **Header trả về:** `Cache-Control: no-store`, `nosniff`; file không phải ảnh tải về dạng attachment.
+  - **Không đổi tên file sang UUID:** đã có kiểm tra quyền nên đoán được tên file cũng không xem được ảnh của người khác.
+
+### H6. Ai đã đăng nhập cũng đọc được mọi báo cáo (phát hiện khi sửa C3, chưa sửa)
+- `ReportServiceImpl.getReportById` (`GET /api/report/{id}`) không kiểm tra người xem có phải chủ báo cáo, người được chia sẻ
+  (`ReportShare`) hay quản lý không. Đổi `id` là đọc được báo cáo của người khác (IDOR). File đính kèm `reports/` vì vậy
+  cũng chỉ yêu cầu đăng nhập.
+- **Sửa:** chỉ trả báo cáo cho chủ báo cáo, người được chia sẻ, MANAGER/ADMIN. Sau đó áp đúng quy tắc này cho `uploads/reports/`
+  (tra báo cáo có `attachment_files` chứa file đó).
 
 ### C4. Tài khoản máy quét gắn cứng trong APK
 

@@ -80,7 +80,6 @@ public class ActiveUserFilter extends OncePerRequestFilter {
                 || uri.startsWith("/webjars/")
                 || uri.startsWith("/favicon.ico")
                 || uri.startsWith("/error")
-                || uri.startsWith("/uploads/")
                 || uri.equals("/")
                 || uri.equals("/home")
                 || uri.equals(Routes.Auth.ROOT + Routes.Auth.LOGIN)

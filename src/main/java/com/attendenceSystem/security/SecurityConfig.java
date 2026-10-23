@@ -65,7 +65,9 @@ public class SecurityConfig {
                         .requestMatchers(Routes.Auth.ROOT + "/**", "/login/**").permitAll()
                         // Static resources
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**",
-                                "/uploads/**", "/favicon.ico", "/error").permitAll()
+                                "/favicon.ico", "/error").permitAll()
+                        // /uploads/** (ảnh khuôn mặt, ảnh bằng chứng, file báo cáo) KHÔNG công khai: cần đăng nhập,
+                        // UploadController kiểm tra thêm quyền theo từng loại file
                         // Các API đăng nhập / OTP
                         .requestMatchers(Routes.API + Routes.Auth.ROOT + "/**",
                                 Routes.API + Routes.Otp.ROOT + "/**").permitAll()

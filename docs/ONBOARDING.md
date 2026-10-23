@@ -71,7 +71,7 @@ Kiến trúc module hoá, mỗi module tự đủ (controller / api / service / 
 ```
 src/main/java/com/attendenceSystem/
 ├── AttendenceSystemApplication.java   # main
-├── config/          # SystemConfig (nạp system_settings), SystemScheduler (cron), TimeConfiguration (ZoneId), WebConfig (/uploads/**), JacksonConfig
+├── config/          # SystemConfig (nạp system_settings), SystemScheduler (cron), TimeConfiguration (ZoneId), JacksonConfig
 ├── security/        # SecurityConfig, CustomUserDetailsService, ActiveUserFilter, CorsConfig, FirewallConfig, ForceChangePasswordInterceptor
 ├── constant/        # Routes.java (toàn bộ đường dẫn), Views.java (tên template)
 ├── exception/       # GlobalExceptionHandler
@@ -167,7 +167,7 @@ khuôn mặt gì cả**, chỉ chụp ảnh lưu lại. Cùng logic check-in/out
 6. Khi accept, embedding vào cache để dùng cho nhận diện 1:N ở kiosk.
 
 Ảnh mẫu lưu tại `uploads/face_samples/{userId}/face_{userId}_{order}.jpg`, phục vụ qua
-`/uploads/**` (`WebConfig`).
+`/uploads/**` qua `UploadController` (cần đăng nhập; chỉ chủ ảnh hoặc MANAGER/ADMIN — audit C3).
 
 ---
 
