@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.attendenceSystem.module.attendance.dto.response.AttendanceResponse;
 import com.attendenceSystem.module.faceid.dto.request.FaceIdAttendanceRequest;
-import com.attendenceSystem.module.faceid.dto.request.FaceIdManualAttendanceRequest;
 import com.attendenceSystem.module.faceid.dto.response.FaceIdAttendanceResponse;
 import com.attendenceSystem.module.faceid.entity.FaceIdRecognition;
 import com.attendenceSystem.module.faceid.entity.enums.FaceIdAction;
@@ -52,7 +51,6 @@ public class FaceIdLogServiceImpl implements FaceIdLogService {
                     .cameraId(request.getCameraId())
                     .imageId(request.getImageId())
                     .trackingId(uniqueTrackingId(request.getTrackingId()))
-                    .liveness(request.getLiveness())
                     .action(action)
                     .message(message)
                     .requestPayload(requestPayload)
@@ -67,48 +65,6 @@ public class FaceIdLogServiceImpl implements FaceIdLogService {
             log.error("Failed to serialize request/response for log", e);
         } catch (Exception e) {
             log.error("Error saving FaceID log to database", e);
-        }
-    }
-
-    @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @Override
-    public void saveManualRecognitionLog(FaceIdManualAttendanceRequest request, FaceIdAction action, String message,
-            AttendanceResponse attendance, LocalDateTime timestamp, Long performedBy) {
-        try {
-            ObjectNode requestJson = objectMapper.valueToTree(request);
-            requestJson.remove("imageBase64");
-            String requestPayload = objectMapper.writeValueAsString(requestJson);
-            String responsePayload = objectMapper.writeValueAsString(
-                    FaceIdAttendanceResponse.builder()
-                            .action(action)
-                            .message(message)
-                            .timestamp(timestamp)
-                            .attendance(attendance)
-                            .build());
-
-            FaceIdRecognition logEntity = FaceIdRecognition.builder()
-                    .studentCode(request.getEmployeeCode())
-                    .confidence(null)
-                    .manual(true)
-                    .performedBy(performedBy)
-                    .cameraId(request.getCameraId())
-                    .trackingId(uniqueTrackingId(request.getTrackingId()))
-                    .action(action)
-                    .message(message)
-                    .requestPayload(requestPayload)
-                    .responsePayload(responsePayload)
-                    .capturedAt(request.getCapturedAt())
-                    .build();
-
-            faceIdRecognitionRepository.saveAndFlush(logEntity);
-            log.info("Lưu FaceID log (thủ công) cho nhân viên: {}", request.getEmployeeCode());
-
-        } catch (JsonProcessingException e) {
-            log.error("Failed to serialize manual request/response for log", e);
-        } catch (Exception e) {
-            log.error("Error saving manual FaceID log to database", e);
-            throw e;
         }
     }
 

@@ -1,13 +1,8 @@
 package com.attendenceSystem.module.faceid.service.impl;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,10 +23,7 @@ import com.attendenceSystem.module.attendance.repository.LeaveRequestRepository;
 import com.attendenceSystem.module.attendance.service.AttendanceActionService;
 import com.attendenceSystem.module.attendance.service.AttendanceService;
 import com.attendenceSystem.module.faceid.dto.request.FaceIdAttendanceRequest;
-import com.attendenceSystem.module.faceid.dto.request.FaceIdManualAttendanceRequest;
-import com.attendenceSystem.module.faceid.dto.response.EmployeeDirectoryResponse;
 import com.attendenceSystem.module.faceid.dto.response.FaceIdAttendanceResponse;
-import com.attendenceSystem.module.faceid.dto.response.FaceIdentifyResponse;
 import com.attendenceSystem.module.faceid.entity.FaceProfile;
 import com.attendenceSystem.module.faceid.entity.FaceSample;
 import com.attendenceSystem.module.faceid.entity.enums.FaceIdAction;
@@ -40,25 +32,27 @@ import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
 import com.attendenceSystem.module.faceid.repository.FaceProfileRepository;
 import com.attendenceSystem.module.faceid.repository.FaceSampleRepository;
 import com.attendenceSystem.module.faceid.service.FaceAiClient;
-import com.attendenceSystem.module.faceid.service.FaceEmbeddingCacheService;
-import com.attendenceSystem.module.faceid.service.FaceEmbeddingEntry;
 import com.attendenceSystem.module.faceid.service.FaceIdAttendanceService;
 import com.attendenceSystem.module.faceid.service.FaceIdLogService;
 import com.attendenceSystem.module.user.entity.User;
-import com.attendenceSystem.module.user.entity.enums.Role;
 import com.attendenceSystem.module.user.entity.enums.Status;
 import com.attendenceSystem.module.user.repository.UserRepository;
-import com.attendenceSystem.util.SecurityUtil;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Chấm công bằng khuôn mặt — chỉ mobile gateway gọi (X-API-Key, xem FaceIdApiKeyFilter).
+ * Attendance tự kiểm tra lại ảnh (khớp mặt + người thật) qua face-ai, không tin kết quả client gửi.
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
+
+    private static final String LIVE = "live";
 
     private final AttendanceService attendanceService;
     private final AttendanceActionService attendanceActionService;
@@ -69,7 +63,6 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
     private final FaceProfileRepository faceProfileRepository;
     private final FaceSampleRepository faceSampleRepository;
     private final FaceAiClient faceAiClient;
-    private final FaceEmbeddingCacheService faceEmbeddingCacheService;
 
     @Value("${face-id.confidence-threshold:0.55}")
     private double confidenceThreshold;
@@ -78,7 +71,7 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             .expireAfterWrite(Duration.ofMinutes(5))
             .maximumSize(100_00)
             .build();
-            
+
     @Transactional
     @Override
     public FaceIdAttendanceResponse processAttendance(FaceIdAttendanceRequest request) {
@@ -102,6 +95,12 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             log.warn(message);
             return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         }
+        // Gateway cache khuôn mặt 5 phút → user vừa bị khoá vẫn có thể được nhận ra; chặn ở đây.
+        if (user.getStatus() != Status.ACTIVE) {
+            String message = "Tài khoản nhân viên không hoạt động.";
+            log.warn("Từ chối điểm danh khuôn mặt cho tài khoản không ACTIVE: {}", request.getStudentCode());
+            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
+        }
 
         // 3. Verify the captured image against the user face samples using face-ai
         if (!StringUtils.hasText(request.getImageBase64())) {
@@ -117,70 +116,36 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         }
 
-        List<FaceSample> faceSamples = faceSampleRepository.findByFaceProfileOrderBySampleOrderAsc(faceProfile);
-        if (faceSamples.isEmpty()) {
+        List<FaceAiClient.KnownFace> knownFaces = faceSampleRepository.findByFaceProfileOrderBySampleOrderAsc(faceProfile)
+                .stream()
+                .filter(sample -> StringUtils.hasText(sample.getEmbedding()))
+                .map(sample -> toKnownFace(user, sample))
+                .toList();
+        if (knownFaces.isEmpty()) {
             String message = "Không tìm thấy mẫu khuôn mặt nào đã đăng ký.";
             log.warn(message);
             return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         }
 
-        FaceAiClient.PoseResult poseResult;
+        // Một lần gọi /recognize: khớp mặt với mẫu của chính user này + kiểm tra người thật + chất lượng ảnh
+        FaceAiClient.RecognizeResponse recognition;
         try {
-            poseResult = faceAiClient.checkPose(request.getImageBase64());
+            recognition = faceAiClient.recognize(request.getImageBase64(), knownFaces, confidenceThreshold);
         } catch (FaceAiUnavailableException e) {
-            String message = "Hệ thống AI nhận diện hiện không khả dụng. Vui lòng thử lại hoặc sử dụng điểm danh thủ công.";
-            log.warn("Kiểm tra tư thế điểm danh thất bại do AI không khả dụng: {}", e.getMessage());
+            String message = "Hệ thống AI nhận diện hiện không khả dụng. Vui lòng thử lại sau.";
+            log.warn("Nhận diện điểm danh thất bại do AI không khả dụng: {}", e.getMessage());
             return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         } catch (FaceAiException e) {
-            String message = "Lỗi xử lý từ hệ thống AI nhận diện: " + e.getMessage();
-            log.warn("Kiểm tra tư thế điểm danh thất bại: {}", e.getMessage());
+            // Chi tiết lỗi từ face-ai (URL nội bộ, body) chỉ ghi log, không trả cho client
+            String message = "Lỗi xử lý ảnh từ hệ thống AI nhận diện.";
+            log.warn("Nhận diện điểm danh thất bại: {}", e.getMessage());
             return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         }
 
-        if (poseResult == null || !Boolean.TRUE.equals(poseResult.ok)) {
-            String message = poseResult != null && StringUtils.hasText(poseResult.message)
-                    ? poseResult.message
-                    : "Vui lòng nhìn thẳng vào camera và giữ khuôn mặt ở trung tâm.";
-            log.warn(message);
-            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
-        }
-
-        FaceAiClient.EmbedResult embedResult;
-        try {
-            embedResult = faceAiClient.embedSingle(request.getImageBase64());
-        } catch (FaceAiUnavailableException e) {
-            String message = "Hệ thống AI nhận diện hiện không khả dụng. Vui lòng thử lại hoặc sử dụng điểm danh thủ công.";
-            log.warn("Tạo embedding điểm danh thất bại do AI không khả dụng: {}", e.getMessage());
-            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
-        } catch (FaceAiException e) {
-            String message = "Lỗi xử lý từ hệ thống AI nhận diện: " + e.getMessage();
-            log.warn("Tạo embedding điểm danh thất bại: {}", e.getMessage());
-            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
-        }
-
-        if (embedResult == null || !embedResult.success || !StringUtils.hasText(embedResult.embedding)) {
-            String message = embedResult != null && StringUtils.hasText(embedResult.message)
-                    ? embedResult.message
-                    : "Không thể tạo embedding từ ảnh chụp.";
-            log.warn(message);
-            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
-        }
-
-        double bestSimilarity = 0.0;
-        for (FaceSample faceSample : faceSamples) {
-            if (!StringUtils.hasText(faceSample.getEmbedding())) {
-                continue;
-            }
-            double similarity = cosineSimilarity(embedResult.embedding, faceSample.getEmbedding());
-            if (similarity > bestSimilarity) {
-                bestSimilarity = similarity;
-            }
-        }
-
-        if (bestSimilarity < confidenceThreshold) {
-            String message = "Không khớp khuôn mặt với dữ liệu đăng ký. Độ tương đồng: " + String.format("%.3f", bestSimilarity);
-            log.warn(message);
-            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
+        String rejection = rejectionReason(recognition);
+        if (rejection != null) {
+            log.warn("Từ chối điểm danh khuôn mặt cho {}: {}", request.getStudentCode(), rejection);
+            return buildResponseAndLog(request, FaceIdAction.FAILED, rejection, trackingId, timestamp, null);
         }
 
         // 4. Determine action using AttendanceService state query
@@ -189,12 +154,12 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
         String responseMessage;
 
         try {
-            AttendanceDecision decision = decideCheckInOrOut(user, request.getImageBase64(), false);
+            AttendanceDecision decision = decideCheckInOrOut(user, request.getImageBase64());
             action = decision.action();
             attendanceResponse = decision.attendance();
             responseMessage = decision.message();
 
-            appendLeaveNoteIfOnLeave(user, action, "");
+            appendLeaveNoteIfOnLeave(user, action);
 
             log.info("Face ID attendance processed: student={}, action={}", request.getStudentCode(), action);
 
@@ -221,160 +186,54 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
         return buildResponseAndLog(request, action, responseMessage, trackingId, timestamp, attendanceResponse);
     }
 
-    @Override
-    public FaceIdentifyResponse identify(String imageBase64) {
-        if (!StringUtils.hasText(imageBase64)) {
-            return FaceIdentifyResponse.builder()
-                    .faceDetected(false)
-                    .matched(false)
-                    .message("Thiếu ảnh")
-                    .build();
-        }
-
-        FaceAiClient.PoseResult pose = faceAiClient.checkPose(imageBase64);
-        if (pose == null || !Boolean.TRUE.equals(pose.ok)) {
-            return FaceIdentifyResponse.builder()
-                    .faceDetected(pose != null && pose.face_count > 0)
-                    .bbox(pose != null ? pose.bbox : null)
-                    .pose(pose != null ? pose.pose : null)
-                    .matched(false)
-                    .message(pose != null ? pose.message : "Không phát hiện khuôn mặt")
-                    .build();
-        }
-
-        FaceAiClient.EmbedResult embedResult = faceAiClient.embedSingle(imageBase64);
-        if (embedResult == null || !embedResult.success || !StringUtils.hasText(embedResult.embedding)) {
-            return FaceIdentifyResponse.builder()
-                    .faceDetected(true)
-                    .bbox(pose.bbox)
-                    .pose(pose.pose)
-                    .matched(false)
-                    .message("Không tạo được embedding")
-                    .build();
-        }
-
-        float[] queryVector = decodeQueryEmbedding(embedResult.embedding);
-        if (queryVector == null) {
-            return FaceIdentifyResponse.builder()
-                    .faceDetected(true)
-                    .bbox(pose.bbox)
-                    .pose(pose.pose)
-                    .matched(false)
-                    .message("Embedding không hợp lệ")
-                    .build();
-        }
-
-        List<FaceEmbeddingEntry> knownFaces = faceEmbeddingCacheService.getKnownEmbeddings();
-        FaceEmbeddingEntry best = null;
-        double bestSimilarity = 0.0;
-        for (FaceEmbeddingEntry entry : knownFaces) {
-            double similarity = FaceEmbeddingCacheService.cosineSimilarity(queryVector, entry.getVector());
-            if (similarity > bestSimilarity) {
-                bestSimilarity = similarity;
-                best = entry;
-            }
-        }
-
-        boolean matched = best != null && bestSimilarity >= confidenceThreshold;
-        FaceEmbeddingEntry matchedEntry = matched ? best : null;
-        return FaceIdentifyResponse.builder()
-                .faceDetected(true)
-                .bbox(pose.bbox)
-                .pose(pose.pose)
-                .matched(matched)
-                .studentCode(matchedEntry != null ? matchedEntry.getStudentCode() : null)
-                .fullName(matchedEntry != null ? matchedEntry.getFullName() : null)
-                .confidence(Math.round(bestSimilarity * 10000.0) / 10000.0)
-                .message(matched ? "Nhận diện thành công" : "Chưa khớp với dữ liệu đã đăng ký")
-                .build();
-    }
-
-    /* ==================================================
-       ĐIỂM DANH THỦ CÔNG (OFFLINE - mất kết nối AI)
-    ================================================== */
-
-    @Override
-    public FaceIdAttendanceResponse processManualAttendance(FaceIdManualAttendanceRequest request) {
-        String trackingId = request.getTrackingId();
-        LocalDateTime timestamp = LocalDateTime.now();
-
-        // 1. Check idempotency (giống luồng AI, tránh double-submit do mạng chậm)
-        if (StringUtils.hasText(trackingId)) {
-            FaceIdAction cachedAction = processedTrackingIds.getIfPresent(trackingId);
-            if (cachedAction != null) {
-                return buildManualResponseAndLog(request, FaceIdAction.IGNORED, "DUPLICATE", trackingId, timestamp, null);
-            }
-        }
-
-        // 2. Tìm nhân viên theo mã đã chọn trên danh sách (không qua nhận diện AI)
-        User user = userRepository.findByUsername(request.getEmployeeCode()).orElse(null);
-        if (user == null) {
-            String message = "Không tìm thấy nhân viên: " + request.getEmployeeCode();
-            log.warn(message);
-            return buildManualResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
-        }
-        if (user.getStatus() != Status.ACTIVE) {
-            String message = "Tài khoản nhân viên không hoạt động: " + request.getEmployeeCode();
-            log.warn(message);
-            return buildManualResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
-        }
-
-        // 3. Xác định check-in/check-out giống hệt luồng AI
-        FaceIdAction action;
-        AttendanceResponse attendanceResponse;
-        String responseMessage;
-
-        try {
-            AttendanceDecision decision = decideCheckInOrOut(user, request.getImageBase64(), true);
-            action = decision.action();
-            attendanceResponse = decision.attendance();
-            responseMessage = decision.message();
-
-            appendLeaveNoteIfOnLeave(user, action, " (điểm danh thủ công)");
-
-            log.info("Manual Face ID attendance: employee={}, action={}", request.getEmployeeCode(), action);
-
-        } catch (AlreadyCheckedInException | AlreadyCheckedOutException | InvalidAttendanceStateException
-                | NotCheckedInException e) {
-            String errorMessage = e.getMessage();
-            log.warn("Điểm danh thủ công bị từ chối theo quy tắc nghiệp vụ cho {}: {}", request.getEmployeeCode(), errorMessage);
-            return buildManualResponseAndLog(request, FaceIdAction.FAILED, errorMessage, trackingId, timestamp, null);
-        } catch (Exception e) {
-            String errorMessage = e.getMessage();
-            log.error("Manual attendance processing error for {}: {}", request.getEmployeeCode(), errorMessage, e);
-            return buildManualResponseAndLog(request, FaceIdAction.FAILED, errorMessage, trackingId, timestamp, null);
-        }
-
-        if (StringUtils.hasText(trackingId)) {
-            processedTrackingIds.put(trackingId, action);
-        }
-
-        return buildManualResponseAndLog(request, action, responseMessage, trackingId, timestamp, attendanceResponse);
+    private static FaceAiClient.KnownFace toKnownFace(User user, FaceSample sample) {
+        return new FaceAiClient.KnownFace(sample.getId(), user.getUsername(), user.getFullName(), sample.getEmbedding());
     }
 
     /**
-     * Logic check-in/check-out dùng chung cho cả luồng AI ({@link #processAttendance}) và
-     * luồng thủ công ({@link #processManualAttendance}) — trước đây 2 hàm này lặp lại gần như
-     * y hệt khối if/else xác định CHECKIN/CHECKOUT/IGNORED.
+     * null = ảnh hợp lệ để chấm công; ngược lại là lý do từ chối (tiếng Việt, trả cho máy quét).
+     * Fail closed: kiểm tra người thật bị tắt hoặc model chưa nạp thì face-ai vẫn báo "live" —
+     * ở đây coi là từ chối.
      */
+    static String rejectionReason(FaceAiClient.RecognizeResponse recognition) {
+        if (recognition == null || !recognition.success) {
+            return recognition != null && StringUtils.hasText(recognition.message)
+                    ? recognition.message
+                    : "Không xử lý được ảnh chụp.";
+        }
+        if (recognition.results == null || recognition.results.size() != 1) {
+            return "Ảnh phải có đúng 1 khuôn mặt.";
+        }
+        FaceAiClient.RecognizedFace face = recognition.results.get(0);
+        if (face.liveness == null
+                || !Boolean.TRUE.equals(face.liveness.get("enabled"))
+                || !Boolean.TRUE.equals(face.liveness.get("model_loaded"))) {
+            return "Hệ thống kiểm tra người thật chưa sẵn sàng, không thể chấm công.";
+        }
+        if (!LIVE.equals(face.liveness_status)) {
+            return StringUtils.hasText(face.note) ? face.note : "Không vượt qua kiểm tra người thật.";
+        }
+        if (!face.recognized) {
+            return "Không khớp khuôn mặt với dữ liệu đăng ký.";
+        }
+        return null;
+    }
+
     private record AttendanceDecision(FaceIdAction action, String message, AttendanceResponse attendance) {
     }
 
-    private AttendanceDecision decideCheckInOrOut(User user, String imageBase64, boolean manual) {
+    private AttendanceDecision decideCheckInOrOut(User user, String imageBase64) {
         Optional<AttendanceRecord> todayRecord = attendanceService.getTodayAttendanceRecord(user);
 
         if (todayRecord.isEmpty()) {
             AttendanceResponse response = attendanceActionService.checkIn(user, imageBase64);
-            String message = manual ? "Điểm danh vào ca thành công (thủ công)" : "Checked in successfully";
-            return new AttendanceDecision(FaceIdAction.CHECKIN, message, response);
+            return new AttendanceDecision(FaceIdAction.CHECKIN, "Checked in successfully", response);
         }
         if (todayRecord.get().getCheckOutTime() == null) {
             AttendanceResponse response = attendanceActionService.checkOut(user, imageBase64);
-            String message = manual ? "Điểm danh tan ca thành công (thủ công)" : "Checked out successfully";
-            return new AttendanceDecision(FaceIdAction.CHECKOUT, message, response);
+            return new AttendanceDecision(FaceIdAction.CHECKOUT, "Checked out successfully", response);
         }
-        String message = manual ? "Nhân viên đã điểm danh đủ 2 lượt hôm nay" : "Already checked out today";
-        return new AttendanceDecision(FaceIdAction.IGNORED, message, null);
+        return new AttendanceDecision(FaceIdAction.IGNORED, "Already checked out today", null);
     }
 
     /**
@@ -382,7 +241,7 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
      * bắt lỗi và chỉ log warn — một checkin/checkout đã thành công không nên bị báo FAILED chỉ
      * vì bước ghi chú phụ này lỗi.
      */
-    private void appendLeaveNoteIfOnLeave(User user, FaceIdAction action, String noteSuffix) {
+    private void appendLeaveNoteIfOnLeave(User user, FaceIdAction action) {
         if (action != FaceIdAction.CHECKIN && action != FaceIdAction.CHECKOUT) {
             return;
         }
@@ -397,51 +256,12 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             Optional<AttendanceRecord> updatedRecord = attendanceRecordRepository.findByUserAndAttendanceDate(user, today);
             updatedRecord.ifPresent(record -> {
                 String currentNote = record.getNote() != null ? record.getNote() + "; " : "";
-                record.setNote(currentNote + "Đi làm trong ngày nghỉ phép" + noteSuffix);
+                record.setNote(currentNote + "Đi làm trong ngày nghỉ phép");
                 attendanceRecordRepository.save(record);
             });
         } catch (RuntimeException e) {
             log.warn("Không thể ghi chú ngày nghỉ cho user {}", user.getUsername(), e);
         }
-    }
-
-    @Override
-    public List<EmployeeDirectoryResponse> listEmployeesForManualAttendance() {
-        // Chỉ tài khoản ACTIVE — khớp với điều kiện ở processManualAttendance. Lọc theo các role
-        // enum Role biết: DB có thể có tài khoản máy quét role = 4 (mobile gateway) mà Role chưa có,
-        // nạp dòng đó sẽ lỗi converter (500), và máy quét cũng không phải nhân viên để chọn.
-        return userRepository.findByStatusAndRoleIn(Status.ACTIVE, EnumSet.allOf(Role.class)).stream()
-                .map(u -> EmployeeDirectoryResponse.builder()
-                        .code(u.getUsername())
-                        .fullName(u.getFullName())
-                        .build())
-                .sorted(Comparator.comparing(
-                        EmployeeDirectoryResponse::fullName,
-                        Comparator.nullsLast(String::compareToIgnoreCase)))
-                .toList();
-    }
-
-    private FaceIdAttendanceResponse buildManualResponseAndLog(
-            FaceIdManualAttendanceRequest request,
-            FaceIdAction action,
-            String message,
-            String trackingId,
-            LocalDateTime timestamp,
-            AttendanceResponse attendance) {
-
-        // Lấy ở đây (thread của request): saveManualRecognitionLog chạy @Async, không còn SecurityContext.
-        // SecurityConfig chỉ cho ADMIN/MANAGER đã đăng nhập gọi luồng thủ công.
-        Long performedBy = SecurityUtil.isAuthenticated() ? SecurityUtil.getCurrentUserId() : null;
-        faceIdLogService.saveManualRecognitionLog(request, action, message, attendance, timestamp, performedBy);
-
-        return FaceIdAttendanceResponse.builder()
-                .success(action != FaceIdAction.FAILED)
-                .action(action)
-                .message(message)
-                .trackingId(trackingId)
-                .timestamp(timestamp)
-                .attendance(attendance)
-                .build();
     }
 
     private FaceIdAttendanceResponse buildResponseAndLog(
@@ -463,69 +283,4 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
                 .attendance(attendance)
                 .build();
     }
-
-    
-    public static double cosineSimilarity(String leftEmbedding, String rightEmbedding) {
-        if (!StringUtils.hasText(leftEmbedding) || !StringUtils.hasText(rightEmbedding)) {
-            return 0.0d;
-        }
-
-        try {
-            float[] left = decodeEmbedding(leftEmbedding);
-            float[] right = decodeEmbedding(rightEmbedding);
-            if (left.length != right.length) {
-                return 0.0d;
-            }
-
-            double dotProduct = 0.0d;
-            double leftNorm = 0.0d;
-            double rightNorm = 0.0d;
-            for (int i = 0; i < left.length; i++) {
-                dotProduct += left[i] * right[i];
-                leftNorm += left[i] * left[i];
-                rightNorm += right[i] * right[i];
-            }
-
-            double denominator = Math.sqrt(leftNorm) * Math.sqrt(rightNorm);
-            if (denominator == 0.0d) {
-                return 0.0d;
-            }
-            return dotProduct / denominator;
-        } catch (IllegalArgumentException ex) {
-            return 0.0d;
-        }
-    }
-
-    private static float[] decodeEmbedding(String embedding) {
-        byte[] bytes = Base64.getDecoder().decode(embedding);
-        if (bytes.length % Float.BYTES != 0) {
-            throw new IllegalArgumentException("Invalid embedding length");
-        }
-
-        ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-        float[] values = new float[bytes.length / Float.BYTES];
-        for (int i = 0; i < values.length; i++) {
-            values[i] = buffer.getFloat();
-        }
-        return values;
-    }
-
-    private float[] decodeQueryEmbedding(String base64Embedding) {
-        try {
-            byte[] bytes = Base64.getDecoder().decode(base64Embedding);
-            if (bytes.length % Float.BYTES != 0) {
-                return null;
-            }
-            ByteBuffer buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
-            float[] values = new float[bytes.length / Float.BYTES];
-            for (int i = 0; i < values.length; i++) {
-                values[i] = buffer.getFloat();
-            }
-            return values;
-        } catch (IllegalArgumentException ex) {
-            return null;
-        }
-    }
-
-    
 }

@@ -49,11 +49,6 @@ public class AttendanceController {
         return Views.Attendance.LIST;
     }
 
-    @GetMapping(Routes.Attendance.CHECK)
-    public String toAttendanceCheckPage() {
-        return Views.Attendance.CHECK;
-    }
-
     @GetMapping(Routes.Attendance.HISTORY)
     public String attendanceHistory(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

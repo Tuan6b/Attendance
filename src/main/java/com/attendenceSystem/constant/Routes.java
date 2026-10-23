@@ -58,7 +58,6 @@ public final class Routes {
         public static final String LEAVE = "/leave";
         public static final String MY_LEAVE = "/leave/list";
         public static final String LEAVE_DETAIL = "/leave/detail";
-        public static final String CHECK = "/check";
         public static final String CHECK_IN = "/check-in";
         public static final String CHECK_OUT = "/check-out";
         public static final String DETAIL = "/detail";

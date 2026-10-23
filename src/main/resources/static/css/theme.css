@@ -69,10 +69,8 @@
     --scrim:rgba(33,26,25,.4);
 }
 
-/* ===================== DARK SCHEME =====================
-   body.dark: the door kiosk (attendance-check.js) toggles a class instead */
-[data-theme="dark"],
-body.dark {
+/* ===================== DARK SCHEME ===================== */
+[data-theme="dark"] {
     --primary:var(--p-80);            --on-primary:var(--p-20);
     --primary-container:#1D3F62;      --on-primary-container:var(--p-90);
     --secondary:var(--p-70);          --on-secondary:var(--p-10);

@@ -26,15 +26,16 @@ nhân viên nào mà không cần mặt, không cần mật khẩu.
 
 | # | Mức | Vấn đề | Thành phần |
 |---|---|---|---|
-| C1 | 🔴 Nghiêm trọng | `POST /api/face-id/attendance/manual` chấm công cho bất kỳ ai, không cần đăng nhập, không cần mặt | Attendance |
-| C2 | 🔴 Nghiêm trọng | `POST /api/face-id/attendance` không cần đăng nhập và **không kiểm tra người thật**, nên dùng ảnh in hoặc ảnh tải về là qua | Attendance |
+| C1 | 🔴 Nghiêm trọng | ✅ đã sửa · `POST /api/face-id/attendance/manual` chấm công cho bất kỳ ai, không cần đăng nhập, không cần mặt | Attendance |
+| C2 | 🔴 Nghiêm trọng | ✅ đã sửa · `POST /api/face-id/attendance` không cần đăng nhập và **không kiểm tra người thật**, nên dùng ảnh in hoặc ảnh tải về là qua | Attendance |
 | C3 | 🔴 Nghiêm trọng | Ảnh khuôn mặt đăng ký của mọi nhân viên tải được công khai qua URL đoán trước `/uploads/face_samples/{id}/face_{id}_{n}.jpg` | Attendance |
 | C4 | 🔴 Nghiêm trọng | Tài khoản máy quét `checker01` / `Admin@123` nằm cứng trong APK, gửi qua HTTP thường, **trùng mật khẩu admin** ghi trong ONBOARDING | App Android |
 | C5 | 🔴 Nghiêm trọng | Xác thực OTP quên mật khẩu trên web không giới hạn số lần nhập sai, nên dò được mã và chiếm được tài khoản bất kỳ (kể cả ADMIN) | Attendance |
-| H1 | 🟠 Cao | `GET /api/face-id/employees` và `POST /api/face-id/identify` không cần đăng nhập: lộ toàn bộ username, họ tên, và cho phép tra danh tính từ ảnh mặt | Attendance |
+| H1 | 🟠 Cao | ✅ đã sửa · `GET /api/face-id/employees` và `POST /api/face-id/identify` không cần đăng nhập: lộ toàn bộ username, họ tên, và cho phép tra danh tính từ ảnh mặt | Attendance |
 | H2 | 🟠 Cao | Toàn bộ đường mobile chạy HTTP thường (không TLS), lộ mật khẩu, refresh token và ảnh mặt trên LAN | App + gateway |
 | H3 | 🟠 Cao | CSRF bị tắt toàn cục trên app dùng cookie session | Attendance |
 | H4 | 🟠 Cao | `/api/otp/send` và `/api/otp/verify` mở công khai: gửi mail tới địa chỉ tuỳ ý, thử mã OTP không giới hạn | Attendance |
+| H5 | 🟠 Cao | ✅ đã sửa · Trang duyệt khuôn mặt `/face-id` (danh sách, accept, reject) mở cho người chưa đăng nhập | Attendance |
 | M1–M8 | 🟡 Trung bình | Secret bị commit, role CHECKER không tồn tại bên Attendance, quyền DB rộng, app không có kiosk mode... | Nhiều chỗ |
 
 Ba việc nên sửa ngay, xếp theo thứ tự: **(1)** khoá `/api/face-id/**` và `/uploads/**`, **(2)** giới hạn số lần nhập
@@ -59,6 +60,9 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
   - log ghi lại `performed_by` (người thao tác);
   - kiosk yêu cầu quản lý đăng nhập và có nút khoá chế độ thủ công.
 
+  Sau đó, khi sửa C2, kiosk web bị gỡ hẳn (chỉ dùng máy quét Android) nên API chấm công thủ công
+  (`/attendance/manual`, `/employees`) đã bị **xoá**. Hệ quả: khi face-ai ngừng hoạt động, không còn cách chấm công nào.
+
 ### C2. Chấm công bằng ảnh, không kiểm tra người thật, không cần xác thực
 
 - **Ở đâu:** cùng cấu hình `permitAll` như C1; `FaceIdAttendanceServiceImpl.processAttendance` (khoảng dòng 117–150 trên `main`) chỉ chạy
@@ -70,6 +74,15 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
 - **Sửa:** (a) Bật kiểm tra trong `FaceIdApiKeyFilter`: so `X-API-Key` với `face-id.api-key` bằng `MessageDigest.isEqual`, trả 401 nếu sai.
   Đồng thời trang kiosk web (`attendance-check.js`) phải đi qua đường có xác thực, hoặc bỏ hẳn trang này nếu máy quét Android đã thay thế nó.
   (b) Bên Attendance tự gọi kiểm tra người thật (hoặc `/recognize` của face-ai đã kèm liveness), không tin vào cờ do client gửi lên.
+- **Trạng thái:** ✅ đã sửa trên nhánh `claude/fix-c1-manual-attendance` (hướng A1 + B):
+  - **Gỡ kiosk web:** trang `/attendance/check` cùng JS/CSS đã bị gỡ.
+  - **API key:** `POST /api/face-id/attendance` chỉ nhận request có `X-API-Key` đúng (`ROLE_FACE_GATEWAY`).
+    Key bắt buộc, dài ≥ 32 ký tự, không còn giá trị mặc định.
+  - **Kiểm tra người thật:** Attendance gọi face-ai `/recognize` với mẫu của chính nhân viên đó. Chỉ chấp nhận khi có
+    đúng 1 khuôn mặt, `liveness_status = live`, kiểm tra người thật đang bật và model đã nạp (fail closed), và khớp mẫu.
+    Trường `liveness` do client gửi bị bỏ.
+  - **Phân quyền còn lại:** các API `/api/face-id/*` khác và trang `/face-id/create` yêu cầu đăng nhập.
+  - **Chưa kiểm tra:** luồng đầy đủ máy quét Android → gateway → Attendance → face-ai.
 
 ### C3. Ảnh khuôn mặt đăng ký tải công khai được
 
@@ -119,6 +132,14 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
   (code đã có `TODO` ghi nhận điều này). Username lấy được ở đây chính là `studentCode` dùng cho C1/C2.
 - `POST /api/face-id/identify`: gửi một ảnh là nhận về họ tên và mã nhân viên. Đây là công cụ nhận diện người từ ảnh, cho bất kỳ ai dùng.
 - **Sửa:** cùng cách khoá như C1. Danh bạ chỉ trả user `ACTIVE` có role nhân viên.
+- **Trạng thái:** ✅ cả hai endpoint đã bị xoá cùng kiosk web (C2). Gateway vẫn có `/api/v1/face/identify` riêng, yêu cầu token CHECKER.
+
+### H5. Trang duyệt khuôn mặt `/face-id` mở công khai (phát hiện khi sửa C2)
+- `FaceProfileController` (`/face-id`, `/face-id/accept/{id}`, `/face-id/reject/{id}`) nằm trong `permitAll` của `/face-id/**`.
+  Người chưa đăng nhập xem được danh sách hồ sơ khuôn mặt, và duyệt hoặc từ chối khuôn mặt của bất kỳ ai.
+- **Trạng thái:** ✅ đã sửa cùng C2: danh sách, accept và reject chỉ ADMIN/MANAGER được dùng; `/face-id/create` yêu cầu đăng nhập.
+- **Còn tồn tại:** chấm công (cả Attendance lẫn gateway) vẫn so khớp với mọi mẫu khuôn mặt, kể cả mẫu chưa được duyệt hoặc
+  đã bị từ chối (`FaceProfile.isAccept`). Nếu việc duyệt có ý nghĩa nghiệp vụ, cần lọc theo `isAccept = true`.
 
 ### H2. Không có TLS trên đường mobile
 - `DxLabAttendance/app/src/main/res/xml/network_security_config.xml:4-6` cho phép cleartext tới `192.168.137.1` (dải mạng hotspot/ICS của Windows).

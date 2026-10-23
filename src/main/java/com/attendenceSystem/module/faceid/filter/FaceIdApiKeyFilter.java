@@ -1,38 +1,53 @@
 package com.attendenceSystem.module.faceid.filter;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
 
 /**
- * Chỗ dành cho việc xác thực API key trên {@code /api/face-id/**} (kiosk điểm danh, đăng ký
- * khuôn mặt...). HIỆN TẠI LÀ PASS-THROUGH — không kiểm tra gì — vì:
- * (1) {@code SecurityConfig} đang để {@code /api/face-id/**} là {@code permitAll}, và
- * (2) frontend hiện tại ({@code attendance-check.js}, {@code faceid-create.js}...) không gửi
- * header API key nào cả — bật kiểm tra ở đây ngay bây giờ sẽ chặn luôn kiosk đang chạy thật.
+ * Xác thực mobile gateway trên {@code POST /api/face-id/attendance} bằng header {@code X-API-Key}
+ * (= {@code face-id.api-key}, bên gateway là ATTENDANCE_API_KEY). Key đúng → request này mang
+ * {@code ROLE_FACE_GATEWAY} (SecurityConfig chỉ cho role đó chấm công); key sai → 401 luôn; không
+ * có header → đi tiếp như request thường (SecurityConfig sẽ chặn).
  *
- * Đây là một rủi ro bảo mật đã biết (bất kỳ ai trên mạng cũng gọi được các API này, xem
- * docs/ONBOARDING.md mục "Rủi ro bảo mật"). Muốn bật lại cần làm cả 2 việc cùng lúc: (a) filter
- * này so sánh header thực tế với {@code face-id.api-key}, và (b) frontend gửi kèm header đó —
- * không chỉ sửa một bên.
+ * <p>Nằm TRONG chuỗi Spring Security (SecurityConfig.addFilterBefore, đăng ký servlet tự động bị
+ * tắt): đặt ngoài chuỗi thì SecurityContextHolderFilter sẽ ghi đè authentication đặt ở đây.
+ * Authentication chỉ sống trong request, không lưu vào session.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
 public class FaceIdApiKeyFilter extends OncePerRequestFilter {
 
-    private static final String FACE_ID_PATH_PREFIX = "/api/face-id";
+    public static final String HEADER = "X-API-Key";
+    public static final String ROLE = "FACE_GATEWAY";
+    private static final String ATTENDANCE_PATH = "/api/face-id/attendance";
+    private static final int MIN_KEY_LENGTH = 32;
+
+    private final byte[] apiKey;
+
+    public FaceIdApiKeyFilter(@Value("${face-id.api-key}") String apiKey) {
+        if (apiKey == null || apiKey.length() < MIN_KEY_LENGTH) {
+            throw new IllegalStateException("FACE_ID_API_KEY phải dài >= " + MIN_KEY_LENGTH + " ký tự");
+        }
+        this.apiKey = apiKey.getBytes(StandardCharsets.UTF_8);
+    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        return !path.startsWith(FACE_ID_PATH_PREFIX);
+        return !ATTENDANCE_PATH.equals(request.getRequestURI());
     }
 
     @Override
@@ -41,6 +56,19 @@ public class FaceIdApiKeyFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
+        String header = request.getHeader(HEADER);
+        if (header == null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        if (!MessageDigest.isEqual(header.getBytes(StandardCharsets.UTF_8), apiKey)) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid API key");
+            return;
+        }
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                "face-gateway", null, List.of(new SimpleGrantedAuthority("ROLE_" + ROLE))));
+        SecurityContextHolder.setContext(context);
         filterChain.doFilter(request, response);
     }
 }

@@ -1,7 +1,5 @@
 package com.attendenceSystem.module.faceid.api;
 
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -16,12 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.attendenceSystem.constant.Routes;
 import com.attendenceSystem.module.faceid.dto.request.FaceCaptureRequest;
 import com.attendenceSystem.module.faceid.dto.request.FaceIdAttendanceRequest;
-import com.attendenceSystem.module.faceid.dto.request.FaceIdManualAttendanceRequest;
-import com.attendenceSystem.module.faceid.dto.request.FaceIdentifyRequest;
-import com.attendenceSystem.module.faceid.dto.response.EmployeeDirectoryResponse;
 import com.attendenceSystem.module.faceid.dto.response.FaceCaptureResponse;
 import com.attendenceSystem.module.faceid.dto.response.FaceIdAttendanceResponse;
-import com.attendenceSystem.module.faceid.dto.response.FaceIdentifyResponse;
 import com.attendenceSystem.module.faceid.dto.response.LatestFaceResponse;
 import com.attendenceSystem.module.faceid.exception.FaceAiException;
 import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
@@ -29,7 +23,6 @@ import com.attendenceSystem.module.faceid.service.FaceAiClient;
 import com.attendenceSystem.module.faceid.service.FaceIdAttendanceService;
 import com.attendenceSystem.module.faceid.service.FaceIdCaptureService;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,7 +49,7 @@ public class FaceIdApiController {
         } catch (FaceAiException e) {
             log.warn("Đăng ký khuôn mặt thất bại do lỗi Face AI: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(FaceCaptureResponse.builder().message("Lỗi xử lý từ hệ thống AI: " + e.getMessage()).success(false).build());
+                    .body(FaceCaptureResponse.builder().message("Lỗi xử lý từ hệ thống AI. Vui lòng thử lại.").success(false).build());
         } catch (Exception e) {
             log.error("Lỗi khi đăng ký face", e);
             return ResponseEntity.internalServerError()
@@ -78,10 +71,7 @@ public class FaceIdApiController {
         try {
             return ResponseEntity.ok(faceIdCaptureService.getLatestFace());
         } catch (IllegalStateException e) {
-            // Endpoint này permitAll (để trang kiosk /attendance/check dùng được ẩn danh), nên
-            // "chưa đăng nhập" là tình huống bình thường với khách kiosk — không phải lỗi máy
-            // chủ. Trả 401 đúng ngữ nghĩa thay vì rơi vào catch-all 500 bên dưới; JS phía
-            // client (attendance-check.js) đã tự xử lý nhánh lỗi này rồi.
+            // Chưa đăng nhập (SecurityConfig đã chặn, phòng hờ) → 401 thay vì rơi vào catch-all 500.
             return ResponseEntity.status(401).build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
@@ -105,7 +95,7 @@ public class FaceIdApiController {
         } catch (FaceAiException e) {
             log.warn("Cập nhật ảnh điểm danh thất bại do lỗi Face AI: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(FaceCaptureResponse.builder().message("Lỗi xử lý từ hệ thống AI: " + e.getMessage()).success(false).build());
+                    .body(FaceCaptureResponse.builder().message("Lỗi xử lý từ hệ thống AI. Vui lòng thử lại.").success(false).build());
         } catch (Exception e) {
             log.error("Lỗi khi cập nhật ảnh điểm danh", e);
             return ResponseEntity.internalServerError()
@@ -133,25 +123,6 @@ public class FaceIdApiController {
             @RequestBody FaceIdAttendanceRequest request) {
 
         FaceIdAttendanceResponse response = faceIdAttendanceService.processAttendance(request);
-        return response.success() ? ResponseEntity.ok(response) : ResponseEntity.badRequest().body(response);
-    }
-
-    @PostMapping("/identify")
-    public ResponseEntity<FaceIdentifyResponse> identify(@RequestBody FaceIdentifyRequest request) {
-        return ResponseEntity.ok(faceIdAttendanceService.identify(request.getImageBase64()));
-    }
-
-    @GetMapping("/employees")
-    public ResponseEntity<List<EmployeeDirectoryResponse>> listEmployees() {
-        return ResponseEntity.ok(faceIdAttendanceService.listEmployeesForManualAttendance());
-    }
-
-    
-    @PostMapping("/attendance/manual")
-    public ResponseEntity<FaceIdAttendanceResponse> processManualAttendance(
-            @Valid @RequestBody FaceIdManualAttendanceRequest request) {
-
-        FaceIdAttendanceResponse response = faceIdAttendanceService.processManualAttendance(request);
         return response.success() ? ResponseEntity.ok(response) : ResponseEntity.badRequest().body(response);
     }
 }

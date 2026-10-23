@@ -38,7 +38,6 @@ import com.attendenceSystem.module.faceid.repository.FaceProfileRepository;
 import com.attendenceSystem.module.faceid.repository.FaceSampleRepository;
 import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
 import com.attendenceSystem.module.faceid.service.FaceAiClient;
-import com.attendenceSystem.module.faceid.service.FaceEmbeddingCacheService;
 import com.attendenceSystem.module.storage.provider.StorageProvider;
 import com.attendenceSystem.module.user.entity.User;
 import com.attendenceSystem.module.user.entity.enums.Role;
@@ -63,9 +62,6 @@ class FaceIdCaptureServiceImplTest {
 
     @Mock
     private StorageProvider storageProvider;
-
-    @Mock
-    private FaceEmbeddingCacheService faceEmbeddingCacheService;
 
     @InjectMocks
     private FaceIdCaptureServiceImpl service;
@@ -123,7 +119,6 @@ class FaceIdCaptureServiceImplTest {
         assertEquals(response.thumbnailUrl(), sampleCaptor.getValue().getImagePath());
 
         verify(storageProvider).save(any(Path.class), any(byte[].class));
-        verify(faceEmbeddingCacheService).invalidate();
     }
 
     @Test
@@ -152,7 +147,6 @@ class FaceIdCaptureServiceImplTest {
         assertEquals("Không nhận diện được khuôn mặt hợp lệ nào trong các mẫu đã chụp", response.message());
         verify(faceSampleRepository, never()).save(any());
         verify(storageProvider, never()).save(any(Path.class), any(byte[].class));
-        verify(faceEmbeddingCacheService, never()).invalidate();
     }
 
     @Test
@@ -205,7 +199,6 @@ class FaceIdCaptureServiceImplTest {
         verify(storageProvider).delete("face_samples/1/old.jpg");
         verify(storageProvider).save(any(Path.class), any(byte[].class));
         verify(faceProfileRepository).save(faceProfile);
-        verify(faceEmbeddingCacheService).invalidate();
     }
 
     @Test
@@ -228,7 +221,6 @@ class FaceIdCaptureServiceImplTest {
 
         verify(faceSampleRepository).deleteById(10L);
         verify(storageProvider).delete("face_samples/1/face_1_1.jpg");
-        verify(faceEmbeddingCacheService).invalidate();
     }
 
     @Test
@@ -255,7 +247,6 @@ class FaceIdCaptureServiceImplTest {
 
         verify(faceSampleRepository, never()).deleteById(10L);
         verify(storageProvider, never()).delete(anyString());
-        verify(faceEmbeddingCacheService, never()).invalidate();
     }
 
     @Test

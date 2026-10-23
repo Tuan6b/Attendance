@@ -14,11 +14,13 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 
 import com.attendenceSystem.constant.Routes;
+import com.attendenceSystem.module.faceid.filter.FaceIdApiKeyFilter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final ActiveUserFilter activeUserFilter;
+    private final FaceIdApiKeyFilter faceIdApiKeyFilter;
     private final CustomUserDetailsService userDetailsService;
     private final AuthenticationConfiguration authenticationConfiguration;
 
@@ -54,6 +57,7 @@ public class SecurityConfig {
                         .sessionFixation().changeSessionId()
                         .invalidSessionUrl(Routes.Auth.ROOT + Routes.Auth.LOGIN))
                 .addFilterBefore(activeUserFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(faceIdApiKeyFilter, AuthorizationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // ------------------- Công khai (không cần đăng nhập) -------------------
                         .requestMatchers("/", "/home").permitAll()
@@ -64,16 +68,16 @@ public class SecurityConfig {
                         // Các API đăng nhập / OTP
                         .requestMatchers(Routes.API + Routes.Auth.ROOT + "/**",
                                 Routes.API + Routes.Otp.ROOT + "/**").permitAll()
-                        // Kiosk điểm danh không cần đăng nhập
-                        .requestMatchers(Routes.Attendance.ROOT + Routes.Attendance.CHECK).permitAll()
-                        // Điểm danh thủ công (chọn tên, không qua AI) chỉ quản lý được làm. Phải đứng
-                        // TRƯỚC dòng permitAll /api/face-id/** bên dưới vì Spring lấy rule khớp đầu tiên.
-                        .requestMatchers(Routes.API + Routes.FaceId.ROOT + "/attendance/manual",
-                                Routes.API + Routes.FaceId.ROOT + "/employees")
+                        // ------------------- Face ID -------------------
+                        // Chấm công khuôn mặt: chỉ mobile gateway (X-API-Key, xem FaceIdApiKeyFilter)
+                        .requestMatchers(Routes.API + Routes.FaceId.ROOT + "/attendance")
+                        .hasRole(FaceIdApiKeyFilter.ROLE)
+                        // Duyệt hồ sơ khuôn mặt: chỉ quản lý (sidebar chỉ hiện trang này cho MANAGER)
+                        .requestMatchers(Routes.FaceId.ROOT,
+                                Routes.FaceId.ROOT + Routes.Action.ACCEPT + "/**",
+                                Routes.FaceId.ROOT + Routes.Action.REJECT + "/**")
                         .hasAnyRole("ADMIN", "MANAGER")
-                        // Face ID đăng ký/điểm danh không cần đăng nhập
-                        .requestMatchers(Routes.FaceId.ROOT + "/**",
-                                Routes.API + Routes.FaceId.ROOT + "/**").permitAll()
+                        // Còn lại (đăng ký khuôn mặt của chính mình...) rơi xuống anyRequest().authenticated()
 
                         // ------------------- ADMIN -------------------
                         .requestMatchers(Routes.Role.ADMIN + "/**",
@@ -146,6 +150,14 @@ public class SecurityConfig {
      * như một servlet filter. Tuy nhiên ta đã thêm nó vào SecurityFilterChain (addFilterBefore)
      * nên cần tắt auto-registration để tránh chạy 2 lần.
      */
+    /** Như ActiveUserFilter: FaceIdApiKeyFilter chỉ chạy trong SecurityFilterChain. */
+    @Bean
+    public FilterRegistrationBean<FaceIdApiKeyFilter> faceIdApiKeyFilterRegistration(FaceIdApiKeyFilter filter) {
+        FilterRegistrationBean<FaceIdApiKeyFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
     @Bean
     public FilterRegistrationBean<ActiveUserFilter> activeUserFilterRegistration(ActiveUserFilter filter) {
         FilterRegistrationBean<ActiveUserFilter> registration = new FilterRegistrationBean<>(filter);

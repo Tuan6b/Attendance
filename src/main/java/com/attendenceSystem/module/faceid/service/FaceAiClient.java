@@ -1,6 +1,5 @@
 package com.attendenceSystem.module.faceid.service;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
@@ -18,6 +17,8 @@ import org.springframework.web.client.RestTemplate;
 
 import com.attendenceSystem.module.faceid.exception.FaceAiException;
 import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,22 +64,52 @@ public class FaceAiClient {
         public Double face_ratio;
     }
 
+    /** Mẫu khuôn mặt đã đăng ký gửi kèm /recognize (tên field theo face-ai). */
+    public record KnownFace(
+            @JsonProperty("student_id") long studentId,
+            @JsonProperty("student_code") String studentCode,
+            @JsonProperty("full_name") String fullName,
+            @JsonProperty("embedding_base64") String embeddingBase64) {
+    }
+
+    /** Một khuôn mặt trong ảnh. liveness: dict của face-ai (enabled, model_loaded, label, ...). */
+    public static class RecognizedFace {
+        public boolean recognized;
+        public Double confidence;
+        public String liveness_status;
+        public Map<String, Object> liveness;
+        public String note;
+    }
+
+    public static class RecognizeResponse {
+        public boolean success;
+        public String message;
+        public List<RecognizedFace> results;
+    }
+
     public EmbedBatchResponse embedBatch(List<String> imagesBase64) {
-        return executePost("/api/internal/face/embed-batch", "images_base64", imagesBase64, EmbedBatchResponse.class);
+        return executePost("/api/internal/face/embed-batch", Map.of("images_base64", imagesBase64), EmbedBatchResponse.class);
     }
 
     public EmbedResult embedSingle(String imageBase64) {
-        return executePost("/api/internal/face/embed", "image_base64", imageBase64, EmbedResult.class);
+        return executePost("/api/internal/face/embed", Map.of("image_base64", imageBase64), EmbedResult.class);
     }
 
     public PoseResult checkPose(String imageBase64) {
-        return executePost("/api/internal/face/pose-check", "image_base64", imageBase64, PoseResult.class);
+        return executePost("/api/internal/face/pose-check", Map.of("image_base64", imageBase64), PoseResult.class);
     }
 
-    private <T> T executePost(String path, String bodyKey, Object bodyValue, Class<T> responseType) {
+    /** So ảnh với các mẫu đã biết; mỗi khuôn mặt trả kèm kết quả kiểm tra người thật. */
+    public RecognizeResponse recognize(String imageBase64, List<KnownFace> knownFaces, double threshold) {
+        return executePost("/api/internal/face/recognize",
+                Map.of("image_base64", imageBase64, "known_faces", knownFaces, "threshold", threshold),
+                RecognizeResponse.class);
+    }
+
+    private <T> T executePost(String path, Map<String, Object> body, Class<T> responseType) {
         String url = baseUrl + path;
         try {
-            HttpEntity<Map<String, Object>> entity = requestEntity(bodyKey, bodyValue);
+            HttpEntity<Map<String, Object>> entity = requestEntity(body);
             ResponseEntity<T> response = restTemplate.postForEntity(url, entity, responseType);
             return response.getBody();
         } catch (ResourceAccessException ex) {
@@ -110,13 +141,10 @@ public class FaceAiClient {
         }
     }
 
-    private HttpEntity<Map<String, Object>> requestEntity(String bodyKey, Object bodyValue) {
+    private HttpEntity<Map<String, Object>> requestEntity(Map<String, Object> body) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-API-Key", apiKey);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put(bodyKey, bodyValue);
 
         return new HttpEntity<>(body, headers);
     }

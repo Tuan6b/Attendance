@@ -109,6 +109,12 @@ face-ai/
 
 ## 4. Luồng nghiệp vụ — Điểm danh tại cửa (quan trọng nhất)
 
+> **Cập nhật 2026-10-23 (audit C2):** kiosk web (`/attendance/check`, `/identify`, chấm thủ công) **đã bị gỡ**.
+> Điểm danh khuôn mặt giờ chỉ qua **máy quét Android → mobile gateway (`mobileBackend`) →
+> `POST /api/face-id/attendance` kèm `X-API-Key`**. Attendance gọi face-ai `/recognize` (khớp mẫu
+> của chính nhân viên + kiểm tra người thật, fail closed). Mục (a), (b) dưới đây và §7, §9.3–9.5
+> mô tả code cũ — xem `docs/SECURITY-AUDIT.md` (C1, C2, H1, H5).
+
 Trang kiosk: `GET /attendance/check` (`templates/cms/attendance/attendance-check.html` +
 `static/js/attendance/attendance-check.js`). **Không cần đăng nhập** (permitAll)... nhưng
 xem cảnh báo ở §9.
@@ -411,7 +417,7 @@ face-ai tự dùng nội bộ. Có thể xoá file để reset — `init_db()` t
 - [ ] Đổi mật khẩu admin (`Admin@123`) sau khi đăng nhập
 - [ ] `git rm --cached face-ai/.env`, xoay `SECRET_KEY` + `INTERNAL_API_KEY` + `face-ai.api-key`
 - [ ] Dọn `face-ai/data/face_lab.db`, ảnh mặt trong `face-ai/storage/` khỏi repo/lịch sử
-- [ ] Bật lại `FaceIdApiKeyFilter` (hoặc siết `/api/face-id/**` trong `SecurityConfig`)
+- [x] Bật lại `FaceIdApiKeyFilter` (hoặc siết `/api/face-id/**` trong `SecurityConfig`) — xong ở audit C2
 - [ ] Cấu hình email trong trang `/system` để test luồng OTP
 - [ ] Hỏi team cũ: (1) có frontend Flutter (port 5000) không? (2) môi trường production đang ở đâu?
 - [ ] Quyết định: có cần anti-spoofing thật không → nếu có, nối `liveness_service` vào luồng

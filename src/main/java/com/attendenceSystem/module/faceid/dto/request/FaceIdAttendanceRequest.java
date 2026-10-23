@@ -26,6 +26,5 @@ public class FaceIdAttendanceRequest {
 
     @Size(max = 255, message = "trackingId không được vượt quá 255 ký tự")
     private String trackingId;
-
-    private Boolean liveness;
+    // Không nhận cờ "liveness" từ client: Attendance tự kiểm tra người thật qua face-ai /recognize.
 }

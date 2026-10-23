@@ -20,7 +20,6 @@ import com.attendenceSystem.module.faceid.exception.FaceAiUnavailableException;
 import com.attendenceSystem.module.faceid.repository.FaceProfileRepository;
 import com.attendenceSystem.module.faceid.repository.FaceSampleRepository;
 import com.attendenceSystem.module.faceid.service.FaceAiClient;
-import com.attendenceSystem.module.faceid.service.FaceEmbeddingCacheService;
 import com.attendenceSystem.module.faceid.service.FaceIdCaptureService;
 import com.attendenceSystem.module.storage.exception.FileStorageException;
 import com.attendenceSystem.module.storage.provider.StorageProvider;
@@ -43,7 +42,6 @@ public class FaceIdCaptureServiceImpl implements FaceIdCaptureService {
     private final FaceSampleRepository faceSampleRepository;
     private final UserRepository userRepository;
     private final StorageProvider storageProvider;
-    private final FaceEmbeddingCacheService faceEmbeddingCacheService;
 
     @Override
     @Transactional
@@ -100,7 +98,6 @@ public class FaceIdCaptureServiceImpl implements FaceIdCaptureService {
         faceProfile.setThumbnailUrl(lastImagePath);
         faceProfile.setIsAccept(null);
         faceProfileRepository.save(faceProfile);
-        faceEmbeddingCacheService.invalidate();
 
         return FaceCaptureResponse.builder()
                 .faceCode(faceProfile.getFaceCode())
@@ -171,7 +168,6 @@ public class FaceIdCaptureServiceImpl implements FaceIdCaptureService {
         faceProfile.setThumbnailUrl(newImagePath);
         faceProfile.setIsAccept(null);
         faceProfileRepository.save(faceProfile);
-        faceEmbeddingCacheService.invalidate();
 
         return FaceCaptureResponse.builder()
                 .faceCode(faceProfile.getFaceCode())
@@ -194,7 +190,6 @@ public class FaceIdCaptureServiceImpl implements FaceIdCaptureService {
 
         faceSampleRepository.deleteById(sampleId);
         deleteFileSafely(sample.getImagePath());
-        faceEmbeddingCacheService.invalidate();
     }
 
     private User getCurrentUser() {
