@@ -123,6 +123,18 @@ class FaceIdAttendanceServiceImplTest {
         verify(f.actionService, never()).checkIn(any(), anyString());
     }
 
+    @Test
+    void processAttendanceRejectsUnapprovedFaceProfile() {
+        for (Boolean isAccept : new Boolean[]{null, false}) { // chờ duyệt, bị từ chối
+            Fixture f = new Fixture(response(face(true, "live", true, true)), Status.ACTIVE, isAccept);
+
+            FaceIdAttendanceResponse response = f.service.processAttendance(request());
+
+            assertFalse(response.success());
+            verify(f.actionService, never()).checkIn(any(), anyString());
+        }
+    }
+
     /** Service với user "nv01" có 1 mẫu khuôn mặt; face-ai /recognize trả [recognition]. */
     private static final class Fixture {
         final AttendanceActionService actionService = mock(AttendanceActionService.class);
@@ -133,10 +145,15 @@ class FaceIdAttendanceServiceImplTest {
         }
 
         Fixture(FaceAiClient.RecognizeResponse recognition, Status status) {
+            this(recognition, status, true);
+        }
+
+        Fixture(FaceAiClient.RecognizeResponse recognition, Status status, Boolean profileAccepted) {
             User user = new User();
             user.setUsername("nv01");
             user.setStatus(status);
             FaceProfile profile = new FaceProfile();
+            profile.setIsAccept(profileAccepted);
             FaceSample sample = new FaceSample();
             sample.setId(1L);
             sample.setEmbedding("AAAAAA==");

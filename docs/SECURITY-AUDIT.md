@@ -138,8 +138,12 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
 - `FaceProfileController` (`/face-id`, `/face-id/accept/{id}`, `/face-id/reject/{id}`) nằm trong `permitAll` của `/face-id/**`.
   Người chưa đăng nhập xem được danh sách hồ sơ khuôn mặt, và duyệt hoặc từ chối khuôn mặt của bất kỳ ai.
 - **Trạng thái:** ✅ đã sửa cùng C2: danh sách, accept và reject chỉ ADMIN/MANAGER được dùng; `/face-id/create` yêu cầu đăng nhập.
-- **Còn tồn tại:** chấm công (cả Attendance lẫn gateway) vẫn so khớp với mọi mẫu khuôn mặt, kể cả mẫu chưa được duyệt hoặc
-  đã bị từ chối (`FaceProfile.isAccept`). Nếu việc duyệt có ý nghĩa nghiệp vụ, cần lọc theo `isAccept = true`.
+- **Chấm công chỉ với khuôn mặt đã duyệt:** ✅ Attendance từ chối nếu `FaceProfile.isAccept != true` (chờ duyệt hoặc bị từ chối),
+  kiểm tra trước khi gọi face-ai. Mỗi lần nhân viên cập nhật ảnh, hồ sơ quay về chờ duyệt và phải được duyệt lại.
+  Gateway (`mobileBackend/.../FaceTemplateRepository`) vẫn nạp cả mặt chưa duyệt vào nhận diện 1:N. Việc này không gây ghi công sai,
+  vì Attendance chặn, nhưng màn hình máy quét vẫn hiện tên người chưa được duyệt. Có thể thêm `AND p.is_accept = true` vào SQL bên gateway.
+- **`POST /face-id/create` nhận `userId` từ client:** ✅ chỉ ADMIN/MANAGER gọi được.
+  Nhân viên tự đăng ký qua `/api/face-id/register`, luôn gắn với chính họ.
 
 ### H2. Không có TLS trên đường mobile
 - `DxLabAttendance/app/src/main/res/xml/network_security_config.xml:4-6` cho phép cleartext tới `192.168.137.1` (dải mạng hotspot/ICS của Windows).

@@ -3,6 +3,7 @@ package com.attendenceSystem.security;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
@@ -77,7 +78,11 @@ public class SecurityConfig {
                                 Routes.FaceId.ROOT + Routes.Action.ACCEPT + "/**",
                                 Routes.FaceId.ROOT + Routes.Action.REJECT + "/**")
                         .hasAnyRole("ADMIN", "MANAGER")
-                        // Còn lại (đăng ký khuôn mặt của chính mình...) rơi xuống anyRequest().authenticated()
+                        // Tạo hồ sơ khuôn mặt cho userId bất kỳ (form cũ, nhận userId từ client) → chỉ quản lý.
+                        // Nhân viên tự đăng ký qua POST /api/face-id/register (luôn gắn với chính họ).
+                        .requestMatchers(HttpMethod.POST, Routes.FaceId.ROOT + Routes.Action.CREATE)
+                        .hasAnyRole("ADMIN", "MANAGER")
+                        // Còn lại (GET /face-id/create, API đăng ký của chính mình...) rơi xuống anyRequest().authenticated()
 
                         // ------------------- ADMIN -------------------
                         .requestMatchers(Routes.Role.ADMIN + "/**",

@@ -115,6 +115,13 @@ public class FaceIdAttendanceServiceImpl implements FaceIdAttendanceService {
             log.warn(message);
             return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
         }
+        // Chỉ hồ sơ đã được quản lý duyệt (null = chờ duyệt, false = bị từ chối). Cập nhật ảnh
+        // đưa hồ sơ về chờ duyệt (FaceIdCaptureServiceImpl) → phải duyệt lại mới chấm được.
+        if (!Boolean.TRUE.equals(faceProfile.getIsAccept())) {
+            String message = "Khuôn mặt chưa được quản lý duyệt, chưa thể chấm công.";
+            log.warn("Từ chối điểm danh: hồ sơ khuôn mặt chưa duyệt cho {}", request.getStudentCode());
+            return buildResponseAndLog(request, FaceIdAction.FAILED, message, trackingId, timestamp, null);
+        }
 
         List<FaceAiClient.KnownFace> knownFaces = faceSampleRepository.findByFaceProfileOrderBySampleOrderAsc(faceProfile)
                 .stream()
