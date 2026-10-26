@@ -296,10 +296,11 @@ public class AuthController {
         }
         try {
             authService.resendOtp(email.trim(), otpPurpose);
-            return ResponseEntity.noContent().build();
         } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+            // Nuốt cả lỗi cooldown 429: chỉ email có tài khoản mới chạm cooldown, trả 429 sẽ lộ email nào tồn tại.
+            // Nút "Gửi lại mã" đã tự đếm ngược phía trình duyệt (verify-otp.js) nên người dùng thật không mất gì.
         }
+        return ResponseEntity.noContent().build();
     }
 
     private OtpPurpose tryParsePurpose(final String purpose) {

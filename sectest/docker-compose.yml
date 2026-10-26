@@ -1,0 +1,84 @@
+# Môi trường kiểm thử bảo mật (Team IA). Được sectest/package.sh chép vào <gói>/deploy/,
+# build từ mã nguồn trong <gói>/src/. Mọi secret nằm trong deploy/.env do package.sh sinh mới — không
+# dùng chung với môi trường dev/production. Khởi động bằng deploy/start.sh (không chạy `up` trực tiếp:
+# gateway cần role DB do init-db.sql tạo sau khi backend đã sinh bảng).
+name: attendance-sectest
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: attendance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?thiếu trong .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./schema-mobile-auth.sql:/sectest/schema-mobile-auth.sql:ro
+    # Không publish: chỉ backend/gateway trong network compose dùng
+    restart: unless-stopped
+
+  face-ai:
+    build: ../src/attendance/face-ai
+    image: attendance-sectest/face-ai:${PACKAGE_TAG:-local}
+    env_file: ./face-ai.env
+    volumes:
+      - face-ai-data:/app/data
+      - insightface-models:/root/.insightface
+    # Chỉ dùng nội bộ (backend, gateway gọi qua http://face-ai:8002)
+    restart: unless-stopped
+
+  backend:
+    build: ../src/attendance
+    image: attendance-sectest/backend:${PACKAGE_TAG:-local}
+    ports:
+      - "${BACKEND_PORT:-9090}:9090"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/attendance
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      FACE_AI_BASE_URL: http://face-ai:8002
+      FACE_AI_API_KEY: ${FACE_AI_API_KEY:?thiếu trong .env}
+      FACE_ID_API_KEY: ${FACE_ID_API_KEY:?thiếu trong .env}
+      # OTP gửi vào Mailpit (xem giao diện ở cổng MAILPIT_UI_PORT), không ra SMTP thật
+      APP_MAIL_HOST: mailpit
+      APP_MAIL_PORT: "1025"
+      APP_MAIL_STARTTLS: "false"
+    depends_on:
+      - postgres
+      - face-ai
+      - mailpit
+    restart: unless-stopped
+
+  mobile-backend:
+    build: ../src/mobileBackend
+    image: attendance-sectest/mobile-backend:${PACKAGE_TAG:-local}
+    env_file: ./mobile-backend.env
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/attendance?currentSchema=mobile_auth,public
+      FACE_AI_BASE_URL: http://face-ai:8002
+      FACE_AI_API_KEY: ${FACE_AI_API_KEY}
+      ATTENDANCE_BASE_URL: http://backend:9090
+      ATTENDANCE_API_KEY: ${FACE_ID_API_KEY}
+    volumes:
+      - ./secrets:/app/secrets:ro
+    ports:
+      - "${GATEWAY_PORT:-8081}:8080"
+    depends_on:
+      - postgres
+      - face-ai
+      - backend
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.20.0
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  face-ai-data:
+  insightface-models:

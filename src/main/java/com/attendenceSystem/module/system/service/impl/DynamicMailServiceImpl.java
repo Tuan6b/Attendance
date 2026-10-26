@@ -12,6 +12,8 @@ import com.attendenceSystem.module.system.service.DynamicMailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Value;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -19,10 +21,15 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class DynamicMailServiceImpl implements DynamicMailService{
-    private static final String SMTP_HOST = "smtp.gmail.com";
-    private static final int SMTP_PORT = 587;
-
     private final SystemConfig systemConfig;
+
+    // Mặc định Gmail như trước; môi trường kiểm thử trỏ sang Mailpit (sectest/) để OTP không gửi ra ngoài.
+    @Value("${app.mail.host:smtp.gmail.com}")
+    private String smtpHost;
+    @Value("${app.mail.port:587}")
+    private int smtpPort;
+    @Value("${app.mail.starttls:true}")
+    private boolean starttls;
 
     @Override
     public void send(MimeMessage message) {
@@ -69,16 +76,16 @@ public class DynamicMailServiceImpl implements DynamicMailService{
         }
 
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost(SMTP_HOST);
-        mailSender.setPort(SMTP_PORT);
+        mailSender.setHost(smtpHost);
+        mailSender.setPort(smtpPort);
         mailSender.setUsername(username);
         mailSender.setPassword(password);
 
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
         props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.starttls.required", "true");
+        props.put("mail.smtp.starttls.enable", String.valueOf(starttls));
+        props.put("mail.smtp.starttls.required", String.valueOf(starttls));
         props.put("mail.debug", "false");
 
         return mailSender;
