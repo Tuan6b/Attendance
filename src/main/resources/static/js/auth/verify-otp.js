@@ -51,10 +51,9 @@ if (resendBtn) {
         resendBtn.disabled = true;
         try {
             const response = email
-                ? await fetch('/api/otp/send', {
+                ? await fetch('/auth/verify-otp/resend', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ destination: email, purpose }),
+                    body: new URLSearchParams({ email, purpose }),
                 })
                 : await fetch('/auth/verify-otp/resend-pending', { method: 'POST' });
 

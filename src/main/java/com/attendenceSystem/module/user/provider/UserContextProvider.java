@@ -35,15 +35,15 @@ public class UserContextProvider {
 
     public List<User> getEmployeesByDepartment(String departmentId) {
         if (departmentId == null || departmentId.isEmpty()) {
-            return userRepository.findByRoleNot(Role.ADMIN);
+            return userRepository.findByRoleNotIn(Role.NOT_STAFF);
         }
 
         Department dept = Department.fromValue(departmentId);
         if (dept == null) {
-            return userRepository.findByRoleNot(Role.ADMIN);
+            return userRepository.findByRoleNotIn(Role.NOT_STAFF);
         }
 
-        return userRepository.findByDepartmentAndRoleNot(dept, Role.ADMIN);
+        return userRepository.findByDepartmentAndRoleNotIn(dept, Role.NOT_STAFF);
     }
 
     public List<UserSimpleResponse> getFullNamesByDepartmentAndRoleNotAdmin(String departmentId) {
@@ -51,11 +51,14 @@ public class UserContextProvider {
         if (department == null) {
             return Collections.emptyList();
         }
-        return userRepository.findFullNameByDepartmentAndRoleNot(department, Role.ADMIN);
+        return userRepository.findFullNameByDepartmentAndRoleNotIn(department, Role.NOT_STAFF);
     }
 
     public List<User> getUsersWithoutAttendanceForDate(LocalDate date){
-        return userRepository.findUsersWithoutAttendanceForDate(date, Status.ACTIVE);
+        // Tài khoản máy quét không chấm công → không đánh vắng
+        return userRepository.findUsersWithoutAttendanceForDate(date, Status.ACTIVE).stream()
+                .filter(user -> user.getRole() != Role.CHECKER)
+                .toList();
 
     }
 }

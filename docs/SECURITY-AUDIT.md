@@ -32,12 +32,12 @@ nhân viên nào mà không cần mặt, không cần mật khẩu.
 | C4 | 🔴 Nghiêm trọng | ✅ đã sửa code (còn đổi mật khẩu) · Tài khoản máy quét `checker01` / `Admin@123` nằm cứng trong APK, gửi qua HTTP thường, **trùng mật khẩu admin** ghi trong ONBOARDING | App Android |
 | C5 | 🔴 Nghiêm trọng | ✅ đã sửa · Xác thực OTP quên mật khẩu trên web không giới hạn số lần nhập sai, nên dò được mã và chiếm được tài khoản bất kỳ (kể cả ADMIN) | Attendance |
 | H1 | 🟠 Cao | ✅ đã sửa · `GET /api/face-id/employees` và `POST /api/face-id/identify` không cần đăng nhập: lộ toàn bộ username, họ tên, và cho phép tra danh tính từ ảnh mặt | Attendance |
-| H2 | 🟠 Cao | Toàn bộ đường mobile chạy HTTP thường (không TLS), lộ mật khẩu, refresh token và ảnh mặt trên LAN | App + gateway |
-| H3 | 🟠 Cao | CSRF bị tắt toàn cục trên app dùng cookie session | Attendance |
-| H4 | 🟠 Cao | `/api/otp/send` và `/api/otp/verify` mở công khai: gửi mail tới địa chỉ tuỳ ý, thử mã OTP không giới hạn | Attendance |
+| H2 | 🟠 Cao | ✅ app · ⏳ server · Toàn bộ đường mobile chạy HTTP thường (không TLS), lộ mật khẩu, refresh token và ảnh mặt trên LAN | App + gateway |
+| H3 | 🟠 Cao | ✅ đã sửa · CSRF bị tắt toàn cục trên app dùng cookie session | Attendance |
+| H4 | 🟠 Cao | ✅ đã sửa · `/api/otp/send` và `/api/otp/verify` mở công khai: gửi mail tới địa chỉ tuỳ ý, thử mã OTP không giới hạn | Attendance |
 | H5 | 🟠 Cao | ✅ đã sửa · Trang duyệt khuôn mặt `/face-id` (danh sách, accept, reject) mở cho người chưa đăng nhập | Attendance |
-| H6 | 🟠 Cao | Ai đã đăng nhập cũng đọc được mọi báo cáo qua `GET /api/report/{id}` (IDOR) | Attendance |
-| M1–M8 | 🟡 Trung bình | Secret bị commit, role CHECKER không tồn tại bên Attendance, quyền DB rộng, app không có kiosk mode... | Nhiều chỗ |
+| H6 | 🟠 Cao | ✅ đã sửa · Ai đã đăng nhập cũng đọc được mọi báo cáo qua `GET /api/report/{id}` (IDOR) | Attendance |
+| M1–M8 | 🟡 Trung bình | ✅ M3, M6, M7 · ⏳ M1, M2, M4, M5, M8 (xem "Việc còn lại") · Secret bị commit, role CHECKER không tồn tại bên Attendance, quyền DB rộng, app không có kiosk mode... | Nhiều chỗ |
 
 Ba việc nên sửa ngay, xếp theo thứ tự: **(1)** khoá `/api/face-id/**` và `/uploads/**`, **(2)** giới hạn số lần nhập
 OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@123` ở mọi tài khoản.
@@ -98,17 +98,32 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
   - **Bỏ truy cập công khai:** gỡ resource handler public (`WebConfig`) và `permitAll` của `/uploads/**`.
   - **Phục vụ qua controller:** `UploadController` phục vụ `/uploads/**` (URL giữ nguyên) sau khi đăng nhập, kiểm tra quyền theo loại file:
     - `face_samples/{userId}` và `attendance_evidence/{userId}`: chỉ chủ ảnh, MANAGER, ADMIN;
-    - `reports/`: ai đã đăng nhập cũng xem được (xem H6);
+    - `reports/`: theo quyền xem báo cáo (xem H6);
     - thư mục khác: 404.
   - **Header trả về:** `Cache-Control: no-store`, `nosniff`; file không phải ảnh tải về dạng attachment.
   - **Không đổi tên file sang UUID:** đã có kiểm tra quyền nên đoán được tên file cũng không xem được ảnh của người khác.
 
-### H6. Ai đã đăng nhập cũng đọc được mọi báo cáo (phát hiện khi sửa C3, chưa sửa)
+### H6. Ai đã đăng nhập cũng đọc được mọi báo cáo (phát hiện khi sửa C3)
 - `ReportServiceImpl.getReportById` (`GET /api/report/{id}`) không kiểm tra người xem có phải chủ báo cáo, người được chia sẻ
   (`ReportShare`) hay quản lý không. Đổi `id` là đọc được báo cáo của người khác (IDOR). File đính kèm `reports/` vì vậy
   cũng chỉ yêu cầu đăng nhập.
 - **Sửa:** chỉ trả báo cáo cho chủ báo cáo, người được chia sẻ, MANAGER/ADMIN. Sau đó áp đúng quy tắc này cho `uploads/reports/`
   (tra báo cáo có `attachment_files` chứa file đó).
+- **Trạng thái:** ✅ đã sửa.
+  - **Chi tiết báo cáo:** `getReportById` chỉ trả báo cáo cho người nộp, người được chia sẻ hoặc ADMIN; người khác nhận 404 như id không tồn tại.
+  - **Danh sách mọi báo cáo:** `GET /api/report` chỉ ADMIN gọi được (giao diện không dùng endpoint này).
+  - **File đính kèm `uploads/reports/`:** áp cùng quy tắc trên. Tên file phải là SHA-256; so khớp chính xác với danh sách
+    `attachment_files` của các báo cáo người xem được.
+  - **Lỗi cũ sửa kèm:** các hàm đọc báo cáo nay chạy trong transaction chỉ đọc. Trước đây, báo cáo có file đính kèm trả 500
+    ("Large Objects may not be used in auto-commit mode") vì cột `@Lob` trên Postgres là kiểu `oid`.
+  - **Kiểm tra trên app thật:** tạo báo cáo thử của `demo.employee`.
+
+    | Người xem | Chi tiết báo cáo | File đính kèm |
+    |---|---|---|
+    | `demo.employee` (người nộp) | 200 | 200 |
+    | `demo.manager` (chưa được chia sẻ) | 404 | 404 |
+    | `demo.manager` (sau khi được chia sẻ) | 200 | 200 |
+    | `admin` | 200 | 200 |
 
 ### C4. Tài khoản máy quét gắn cứng trong APK
 
@@ -188,12 +203,26 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
   Comment trong compose ghi "Public traffic must come through a TLS reverse proxy", nhưng app lại trỏ thẳng vào cổng HTTP.
 - **Sửa:** đặt reverse proxy TLS (Caddy hoặc nginx) trước gateway, đổi `BASE_URL` sang `https://`, xoá `domain-config` cleartext.
   Nếu dùng CA nội bộ thì khai báo trong `network_security_config` và pin CA.
+- **Trạng thái:** ✅ phía app; ⏳ phía server còn chờ quyết định cách triển khai (xem "Việc còn lại").
+  - **App, nhánh `claude/fix-c4-device-activation`:** cấu hình mạng chính chỉ cho HTTPS. Cho phép HTTP tới `192.168.137.1`
+    giờ nằm riêng ở `src/debug/res/xml/network_security_config.xml`, chỉ có trong bản debug.
+  - **Địa chỉ gateway bản release:** lấy từ `-PcheckerBaseUrl=`. Build release không có địa chỉ `https://` thì dừng ngay.
 
 ### H3. CSRF bị tắt trên app dùng cookie session
 - `Attendance/.../security/SecurityConfig.java:50` (`csrf.disable()`), CORS `allowCredentials=true`.
   Các form của ADMIN (đổi role, khoá tài khoản, cấu hình email...) chỉ còn dựa vào mặc định SameSite=Lax của trình duyệt.
   Safari cũ hoặc request top-level GET vẫn có thể bị lợi dụng.
 - **Sửa:** bật lại CSRF cho các route web (Thymeleaf đã tự chèn token vào form), chỉ bỏ qua cho `/api/face-id/**` sau khi đã có API key (C2).
+- **Trạng thái:** ✅ đã sửa bằng cách khác, ít rủi ro hơn bật token CSRF. Nhiều form dùng `action=` thường (không phải `th:action`)
+  và nhiều `fetch` POST không gửi token, nên bật token sẽ làm hỏng chúng.
+  - **`OriginCheckFilter`:** áp cho POST/PUT/PATCH/DELETE. Chặn (403) nếu `Origin` (hoặc `Referer` khi thiếu `Origin`) khác host
+    của trang và không nằm trong CORS allowlist; chặn luôn `Origin: null`. Request không có cả hai header (gateway gọi
+    server-to-server) thì cho qua. Theo OWASP "Verifying Origin With Standard Headers".
+  - **Cookie phiên:** `SameSite=Lax` và `HttpOnly`.
+  - **Kiểm tra trên app thật:**
+    - `POST /auth/login` với `Origin: http://evil.example` → 403; `Origin: null` → 403.
+    - Cùng host, hoặc không có `Origin` → đăng nhập bình thường.
+    - Đăng nhập trên trình duyệt và `fetch` POST cùng origin vẫn chạy.
 
 ### H4. API OTP của Attendance mở công khai
 - `SecurityConfig.java:65-66` cho phép công khai `/api/otp/**`. `/api/otp/send` nhận `destination` tuỳ ý: dùng SMTP của công ty gửi mail tới
@@ -201,6 +230,14 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
   của họ (DoS quên mật khẩu). `/api/otp/verify` cho phép thử mã không giới hạn (C5).
 - Gateway là nơi duy nhất cần gọi 2 endpoint này.
 - **Sửa:** chỉ cho phép khi có `X-API-Key` của gateway, bỏ `permitAll`.
+- **Trạng thái:** ✅ đã sửa.
+  - **Khoá API OTP:** `/api/otp/send` và `/api/otp/verify` yêu cầu `X-API-Key`. `FaceIdApiKeyFilter` áp cho cả 2 đường dẫn này;
+    role đổi thành `ROLE_GATEWAY`.
+  - **Nút "Gửi lại mã" trên web:** trước đây trình duyệt gọi thẳng `/api/otp/send`. Nay gọi `POST /auth/verify-otp/resend`,
+    endpoint này chỉ gửi tới email có tài khoản ở đúng bước (quên mật khẩu, hoặc đăng ký chưa xác thực) và luôn trả 204,
+    để không dò được email nào có tài khoản.
+  - **Kiểm tra trên app thật:** gọi không có key → 401; có key → vào tới service. Gửi lại mã cho email không tồn tại → 204,
+    không tạo OTP nào.
 
 ---
 
@@ -208,14 +245,14 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
 
 | # | Vấn đề | Ở đâu | Sửa |
 |---|---|---|---|
-| M1 | `face-ai/.env` vẫn được git theo dõi, chứa `INTERNAL_API_KEY` (bằng đúng key cũ từng hard-code trong `application.properties`), `SECRET_KEY`, `DEFAULT_ADMIN_PASSWORD`. Bản local đã đổi key nhưng chưa commit. Key cũ vẫn nằm trong lịch sử git. ONBOARDING §13 đã ghi việc này nhưng **chưa làm** | `Attendance/face-ai/.env` | `git rm --cached face-ai/.env`, coi mọi giá trị cũ là đã lộ và đổi hết |
-| M2 | `face-ai/data/face_lab.db` (SQLite của app face-ai cũ) được commit | `Attendance/face-ai/data/` | Xoá khỏi repo, nếu có dữ liệu thật thì xoá cả khỏi lịch sử git |
-| M3 | Gateway đòi role `CHECKER = 4` (`AttendanceUserDetailsService.java:23`) nhưng enum `Role` của Attendance chỉ có ADMIN/MANAGER/EMPLOYEE. ADMIN không tạo được CHECKER qua giao diện, phải sửa DB tay, và `Role.fromValue(4)` sẽ ném lỗi nếu user đó vào web | `Attendance/.../user/entity/enums/Role.java` | Thêm `CHECKER(4)` vào enum, chặn CHECKER đăng nhập web |
-| M4 | Role DB `mobile_gateway` có `UPDATE (password)` trên **toàn bộ** bảng `users`. Gateway chỉ cần đổi mật khẩu cho CHECKER, nhưng nếu gateway có lỗi SQL hoặc logic thì đổi được mật khẩu ADMIN | `mobileBackend/src/main/resources/schema-mobile-auth.sql:7` | Dùng hàm `SECURITY DEFINER` chỉ cho đổi mật khẩu của user có `role = 4`, hoặc gọi API của Attendance |
-| M5 | Đặt lại mật khẩu từ gateway ghi thẳng vào DB: bỏ qua chính sách mật khẩu và audit log của Attendance, không huỷ session web | `MobileAuthController.resetPassword` | Gọi qua API của Attendance |
-| M6 | App không chạy kiosk mode: chỉ chặn nút Back, bấm Home hoặc Recents là thoát ra hệ điều hành, vào được Settings và gỡ app | `DxLabAttendance/.../MainActivity.kt:28` | Device Owner + `startLockTask()`, tắt status bar |
-| M7 | Bản release để `isMinifyEnabled = false`, đọc ngược APK rất dễ | `app/build.gradle.kts:26` | Bật R8. Nhưng **không thay thế** việc sửa C4 |
-| M8 | Luồng OAuth2 PKCE (`/oauth2/authorize` + form `/login`) và scope `face.embed` (trả embedding thô) vẫn bật dù app không dùng. Redirect URI dùng custom scheme `com.attendance://` nên app khác có thể chiếm (PKCE giảm thiểu được phần này) | `mobileBackend/.../config/AuthServerConfig.java:82-92`, `SecurityConfig.java:25-37,70-77` | Gỡ luồng không dùng để thu hẹp bề mặt tấn công |
+| M1 ⏳ | `face-ai/.env` vẫn được git theo dõi, chứa `INTERNAL_API_KEY` (bằng đúng key cũ từng hard-code trong `application.properties`), `SECRET_KEY`, `DEFAULT_ADMIN_PASSWORD`. Bản local đã đổi key nhưng chưa commit. Key cũ vẫn nằm trong lịch sử git. ONBOARDING §13 đã ghi việc này nhưng **chưa làm** | `Attendance/face-ai/.env` | `git rm --cached face-ai/.env`, coi mọi giá trị cũ là đã lộ và đổi hết |
+| M2 ⏳ | `face-ai/data/face_lab.db` (SQLite của app face-ai cũ) được commit | `Attendance/face-ai/data/` | Xoá khỏi repo, nếu có dữ liệu thật thì xoá cả khỏi lịch sử git |
+| M3 | Gateway đòi role `CHECKER = 4` (`AttendanceUserDetailsService.java:23`) nhưng enum `Role` của Attendance chỉ có ADMIN/MANAGER/EMPLOYEE. ADMIN không tạo được CHECKER qua giao diện, phải sửa DB tay, và `Role.fromValue(4)` sẽ ném lỗi nếu user đó vào web | `Attendance/.../user/entity/enums/Role.java` | ✅ Đã thêm `CHECKER(4)`. CHECKER đăng nhập web bị báo như sai tài khoản. Máy quét bị loại khỏi danh sách nhân viên, thống kê, danh sách chia sẻ báo cáo và việc tự đánh vắng (`Role.NOT_STAFF`). ADMIN đổi role sang CHECKER được ngay trên trang tài khoản |
+| M4 ⏳ | Role DB `mobile_gateway` có `UPDATE (password)` trên **toàn bộ** bảng `users`. Gateway chỉ cần đổi mật khẩu cho CHECKER, nhưng nếu gateway có lỗi SQL hoặc logic thì đổi được mật khẩu ADMIN | `mobileBackend/src/main/resources/schema-mobile-auth.sql:7` | Dùng hàm `SECURITY DEFINER` chỉ cho đổi mật khẩu của user có `role = 4`, hoặc gọi API của Attendance |
+| M5 ⏳ | Đặt lại mật khẩu từ gateway ghi thẳng vào DB: bỏ qua chính sách mật khẩu và audit log của Attendance, không huỷ session web | `MobileAuthController.resetPassword` | Gọi qua API của Attendance |
+| M6 | App không chạy kiosk mode: chỉ chặn nút Back, bấm Home hoặc Recents là thoát ra hệ điều hành, vào được Settings và gỡ app | `DxLabAttendance/.../MainActivity.kt:28` | ✅ App có `CheckerDeviceAdminReceiver`. Khi là device owner, app tự `setLockTaskPackages` và `startLockTask()` (`lockTaskMode="if_whitelisted"`), và cấp sẵn quyền camera để máy không kẹt ở hộp thoại xin quyền. Cài 1 lần: `adb shell dpm set-device-owner com.DxLab.dxlabattendance/.kiosk.CheckerDeviceAdminReceiver` (máy đã reset, chưa có tài khoản). Còn thiếu: máy khởi động lại không tự mở app |
+| M7 | Bản release để `isMinifyEnabled = false`, đọc ngược APK rất dễ | `app/build.gradle.kts:26` | ✅ Release bật `isMinifyEnabled` và `isShrinkResources`; APK release còn 3,9 MB. **Chưa chạy thử bản release trên máy thật** |
+| M8 ⏳ | Luồng OAuth2 PKCE (`/oauth2/authorize` + form `/login`) và scope `face.embed` (trả embedding thô) vẫn bật dù app không dùng. Redirect URI dùng custom scheme `com.attendance://` nên app khác có thể chiếm (PKCE giảm thiểu được phần này) | `mobileBackend/.../config/AuthServerConfig.java:82-92`, `SecurityConfig.java:25-37,70-77` | Gỡ luồng không dùng để thu hẹp bề mặt tấn công |
 
 ## 🔵 Thấp và ghi chú
 
@@ -225,6 +262,63 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
 - `/face/identify` của gateway trả họ tên cả khi mặt **không** qua kiểm tra người thật: giơ ảnh trước máy quét là biết tên.
 - `AttendanceClient.check` luôn gửi `"liveness": true` và `cameraId: "checker"`. Hai giá trị này vô nghĩa vì Attendance không đọc (xem C2).
 - Lỗi chức năng phát hiện khi rà soát: `LOGIN_OTP_ENABLED=true` cần nhánh `feature/mobile-gateway` (`OtpPurpose.LOGIN`). Chạy với `main` thì trả 400.
+
+## Việc còn lại — hướng sửa chi tiết
+
+Các mục dưới đây chưa sửa, vì cần quyết định triển khai hoặc đụng repo/dữ liệu không thuộc phạm vi tự sửa được.
+
+### H2 phía server: đặt TLS trước gateway
+Chỉ thêm proxy thì chưa đủ. Phải đồng thời bỏ publish `8081` và `9090` ra `0.0.0.0` (chỉ bind `127.0.0.1`, hoặc chỉ `expose`),
+nếu không người trong LAN vẫn gọi được HTTP thẳng vào gateway. Có hai cách:
+- **A — có tên miền (khuyến nghị):** thêm service `caddy` vào `docker-compose.yml`, mở 80/443, `Caddyfile`:
+  `checker.<tên-miền> { reverse_proxy mobile-backend:8080 }`. Caddy tự lấy chứng chỉ Let's Encrypt; app tin chứng chỉ hệ thống,
+  không phải sửa gì thêm. Build app: `./gradlew assembleRelease -PcheckerBaseUrl=https://checker.<tên-miền>`.
+- **B — chỉ chạy trong LAN, không có tên miền:** Caddy dùng `tls internal` (CA riêng của Caddy).
+  - Chép chứng chỉ gốc `/data/caddy/pki/authorities/local/root.crt` vào `app/src/main/res/raw/gateway_ca.crt`.
+  - Thêm `<trust-anchors><certificates src="@raw/gateway_ca"/></trust-anchors>` vào
+    `domain-config` của địa chỉ gateway trong `src/main/res/xml/network_security_config.xml`.
+  - Đổi CA (Caddy tạo lại) thì phải build lại app.
+- **Cả hai cách:** gateway đã có `server.forward-headers-strategy=framework`. Chỉ để Caddy gửi `X-Forwarded-*`, vì gateway không còn mở thẳng ra LAN.
+- **Nếu dùng nginx thay Caddy:** bắt buộc có `proxy_set_header Host $host;`. `OriginCheckFilter` (H3) so `Origin` với header `Host`;
+  nginx mặc định đổi `Host` thành tên upstream, khi đó mọi form POST trên trình duyệt sẽ bị 403. Caddy giữ nguyên `Host`.
+
+### M1, M2: gỡ secret và DB khỏi git
+**Lưu ý:** khi merge nhánh đã gỡ 2 file này vào checkout chính, git sẽ **xoá** `face-ai/data/face_lab.db` khỏi thư mục làm việc
+(DB này được mount vào container face-ai). `face-ai/.env` đang sửa local nên merge sẽ bị từ chối. Vì vậy phải sao lưu trước:
+```bash
+cp face-ai/.env face-ai/.env.bak && cp face-ai/data/face_lab.db face-ai/data/face_lab.db.bak
+git rm --cached face-ai/.env face-ai/data/face_lab.db
+printf 'face-ai/.env\nface-ai/data/*.db\n' >> .gitignore
+git commit -m "Stop tracking face-ai secrets and runtime DB"
+cp face-ai/.env.bak face-ai/.env && cp face-ai/data/face_lab.db.bak face-ai/data/face_lab.db
+```
+Sau đó làm tiếp:
+- **Đổi lại toàn bộ secret** (`SECRET_KEY`, `INTERNAL_API_KEY`, `DEFAULT_ADMIN_PASSWORD`), vì giá trị cũ vẫn còn trong lịch sử git.
+- **Xoá khỏi lịch sử (tuỳ chọn, ảnh hưởng mọi người clone repo):** chạy `git filter-repo --path face-ai/.env --path face-ai/data/face_lab.db --invert-paths`
+  rồi force-push. Mọi người phải clone lại.
+
+### mobileBackend (repo đang có thay đổi chưa commit trên `feature/checker-actor` — commit xong mới áp)
+- **M4:** bỏ `GRANT UPDATE (password, updated_at) ON users TO mobile_gateway`, thay bằng một hàm chỉ đổi được mật khẩu CHECKER:
+  ```sql
+  CREATE FUNCTION public.set_checker_password(p_id bigint, p_hash text) RETURNS boolean
+    LANGUAGE sql SECURITY DEFINER SET search_path = public AS
+  $$ UPDATE users SET password = p_hash, updated_at = now() WHERE id = p_id AND role = 4 RETURNING true $$;
+  REVOKE ALL ON FUNCTION public.set_checker_password(bigint, text) FROM PUBLIC;
+  GRANT EXECUTE ON FUNCTION public.set_checker_password(bigint, text) TO mobile_gateway;
+  ```
+  `AttendanceUserDetailsService.updatePassword` gọi `SELECT public.set_checker_password(?, ?)`.
+- **M5:** cách gọn nhất là bỏ `/auth/password/forgot|reset` khỏi gateway. Máy quét không có người dùng tự quên mật khẩu:
+  quản trị viên đặt lại mật khẩu CHECKER trên web Attendance, rồi kích hoạt lại máy. Làm vậy thì M4 cũng hết lý do tồn tại.
+- **M8:** xoá chain `authorizationServerChain` và `defaultChain` (form `/login`), client `mobile-app` (PKCE) và scope `face.embed`
+  cùng 2 endpoint `/face/embed*` nếu không server nào dùng. Giữ `client_credentials` nếu còn server gọi.
+- **H5 bên gateway:** `FaceTemplateRepository.BASE_SQL` thêm `AND p.is_accept = true`.
+- **Thấp:** `JwtDecoder` thêm kiểm tra `aud` (`JwtClaimValidator<List<String>>("aud", aud -> aud.contains(mobileClientId))`).
+  Bỏ `"liveness": true` và `cameraId` thừa trong `AttendanceClient.check`.
+
+### DB Attendance
+- Ràng buộc `otp_purpose_check` chỉ cho `purpose` 1–3, nên OTP đăng nhập của gateway (`LOGIN = 4`) sẽ lỗi khi bật `LOGIN_OTP_ENABLED`
+  (Hibernate không tự cập nhật ràng buộc này). Chạy:
+  `ALTER TABLE otp DROP CONSTRAINT otp_purpose_check; ALTER TABLE otp ADD CONSTRAINT otp_purpose_check CHECK (purpose BETWEEN 1 AND 4);`
 
 ## Đã làm tốt (giữ nguyên)
 

@@ -11,4 +11,5 @@ public interface AuthService {
     void register(RegisterRequest request);
     void forgotPassword(String email);
     boolean verifyOtp(String destination, String code, OtpPurpose purpose);
+    void resendOtp(String email, OtpPurpose purpose);
 }

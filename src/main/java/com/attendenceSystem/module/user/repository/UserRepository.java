@@ -1,6 +1,7 @@
 package com.attendenceSystem.module.user.repository;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,9 +58,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         List<User> findBySpecializationAndRoleNot(Specialization specialization, Role role);
 
-        List<User> findByDepartmentAndRoleNot(Department department, Role role);
+        List<User> findByDepartmentAndRoleNotIn(Department department, Collection<Role> roles);
 
-        List<User> findByRoleNot(Role role);
+        List<User> findByRoleNotIn(Collection<Role> roles);
 
         Page<AdminAccountManageList> findBy(Pageable pageable);
 
@@ -77,7 +78,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         long countByRole(Role role);
 
-        long countByRoleNot(Role role);
+        long countByRoleNotIn(Collection<Role> roles);
 
         @Query("SELECT u.role AS role, COUNT(u) AS count FROM User u GROUP BY u.role")
         List<RoleCountProjection> countUsersGroupByRole();
@@ -85,13 +86,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
         // ===== DTO =====
 
         @Query("SELECT new com.attendenceSystem.module.user.dto.response.UserSimpleResponse(u.id, u.fullName) " +
-                        "FROM User u WHERE u.department = :department AND u.role != :role")
-        List<UserSimpleResponse> findFullNameByDepartmentAndRoleNot(
+                        "FROM User u WHERE u.department = :department AND u.role NOT IN :roles")
+        List<UserSimpleResponse> findFullNameByDepartmentAndRoleNotIn(
                         @Param("department") Department department,
-                        @Param("role") Role role);
+                        @Param("roles") Collection<Role> roles);
 
         @Query("SELECT new com.attendenceSystem.module.user.dto.response.UserWithSpecializationResponse(u.id, u.fullName, u.specialization) "
                         +
-                        "FROM User u WHERE u.role != :role ORDER BY u.fullName ASC")
-        List<UserWithSpecializationResponse> findAllUsersWithSpecializationByRoleNot(@Param("role") Role role);
+                        "FROM User u WHERE u.role NOT IN :roles ORDER BY u.fullName ASC")
+        List<UserWithSpecializationResponse> findAllUsersWithSpecializationByRoleNotIn(@Param("roles") Collection<Role> roles);
 }

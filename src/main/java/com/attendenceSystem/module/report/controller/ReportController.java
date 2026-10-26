@@ -36,7 +36,7 @@ public class ReportController {
 
     @GetMapping(Routes.Action.CREATE)
     public String reportCreate(Model model) {
-        List<UserWithSpecializationResponse> users = userRepository.findAllUsersWithSpecializationByRoleNot(Role.ADMIN);
+        List<UserWithSpecializationResponse> users = userRepository.findAllUsersWithSpecializationByRoleNotIn(Role.NOT_STAFF);
         model.addAttribute("users", users);
         model.addAttribute("specializations", Specialization.values());
         return Views.Document.CREATE;
@@ -65,7 +65,7 @@ public class ReportController {
             return Routes.REDIRECT + Routes.Report.ROOT + "?success=true";
         } catch (Exception e) {
             model.addAttribute("errorMessage", e.getMessage());
-            List<UserWithSpecializationResponse> users = userRepository.findAllUsersWithSpecializationByRoleNot(Role.ADMIN);
+            List<UserWithSpecializationResponse> users = userRepository.findAllUsersWithSpecializationByRoleNotIn(Role.NOT_STAFF);
             model.addAttribute("users", users);
             model.addAttribute("specializations", Specialization.values());
             return Views.Document.CREATE;

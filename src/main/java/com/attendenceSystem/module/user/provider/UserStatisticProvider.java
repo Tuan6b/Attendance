@@ -25,7 +25,7 @@ public class UserStatisticProvider {
     }
 
     public long getTotalEmployeeAndManager() {
-        return userRepository.countByRoleNot(Role.ADMIN);
+        return userRepository.countByRoleNotIn(Role.NOT_STAFF);
     }
 
     public Map<String, Long> getRoleCounts() {

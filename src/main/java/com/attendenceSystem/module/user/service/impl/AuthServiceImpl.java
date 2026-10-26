@@ -159,6 +159,24 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Nút "Gửi lại mã" trên trang nhập OTP. Chỉ gửi tới email của một tài khoản đang ở đúng bước
+     * (quên mật khẩu: tài khoản tồn tại; đăng ký: tài khoản chờ xác thực email); trường hợp khác im lặng
+     * bỏ qua để không dò được email nào có tài khoản. Lỗi cooldown 429 của OtpService vẫn ném ra.
+     */
+    @Override
+    public void resendOtp(final String email, final OtpPurpose purpose) {
+        Optional<User> user = userRepository.findByEmail(email);
+        boolean eligible = switch (purpose) {
+            case FORGOT_PASSWORD -> user.isPresent();
+            case REGISTER -> user.filter(u -> u.getStatus() == Status.PENDING && !u.isEmailVerified()).isPresent();
+            default -> false;
+        };
+        if (eligible) {
+            otpService.send(SendOtpRequest.builder().destination(user.get().getEmail()).purpose(purpose).build());
+        }
+    }
+
     private Optional<User> findUser(final String keyword) {
         return userRepository.findByUsernameOrEmail(keyword, keyword);
     }

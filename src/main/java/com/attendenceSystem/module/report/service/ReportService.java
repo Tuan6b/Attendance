@@ -17,5 +17,6 @@ public interface ReportService {
 
     Page<ReportResponse> getSharedWithMe(Pageable pageable);
 
+    boolean canViewAttachment(String fileUrl);
     ReportDetailResponse getReportById(Long id);
 }

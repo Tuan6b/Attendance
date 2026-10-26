@@ -1,5 +1,6 @@
 package com.attendenceSystem.module.report.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -22,4 +23,8 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     @Query("SELECT r FROM Report r LEFT JOIN FETCH r.shares rs LEFT JOIN FETCH rs.user WHERE r.id = :id")
     Optional<Report> findByIdWithShares(@Param("id") Long id);
+
+    /** Báo cáo userId nộp hoặc được chia sẻ. attachment_files là @Lob (oid trên Postgres) nên không lọc bằng LIKE được. */
+    @Query("SELECT DISTINCT r FROM Report r LEFT JOIN r.shares s WHERE r.employee.id = :userId OR s.user.id = :userId")
+    List<Report> findVisibleTo(@Param("userId") Long userId);
 }

@@ -27,8 +27,12 @@ class UploadControllerTest {
     }
 
     @Test
-    void reportAttachmentsNeedOnlyLogin() {
-        assertTrue(canRead("reports/abc.pdf", 7L, Role.EMPLOYEE));
+    void reportAttachmentNamesMustBeContentHashes() {
+        // canRead chỉ kiểm tra tên; quyền theo báo cáo nằm ở serve() (DB)
+        assertTrue(canRead("reports/" + "a".repeat(64) + ".pdf", 7L, Role.EMPLOYEE));
+        assertFalse(canRead("reports/abc.pdf", 7L, Role.EMPLOYEE));
+        assertFalse(canRead("reports/" + "a".repeat(63) + "%.pdf", 7L, Role.EMPLOYEE));
+        assertFalse(canRead("reports/" + "a".repeat(63) + "_.pdf", 7L, Role.EMPLOYEE));
     }
 
     @Test

@@ -282,6 +282,26 @@ public class AuthController {
         }
     }
 
+    /**
+     * "Gửi lại mã" khi trang nhập OTP biết email (đăng ký / quên mật khẩu). Thay cho việc trình duyệt gọi
+     * thẳng {@code POST /api/otp/send} (giờ chỉ mobile gateway gọi được, có X-API-Key). Luôn 204 dù email
+     * có tài khoản hay không — xem AuthService.resendOtp.
+     */
+    @PostMapping(Routes.Auth.VERIFY_OTP + "/resend")
+    public ResponseEntity<String> resendOtp(@RequestParam("email") final String email,
+            @RequestParam("purpose") final String purpose) {
+        OtpPurpose otpPurpose = tryParsePurpose(purpose);
+        if (otpPurpose != OtpPurpose.REGISTER && otpPurpose != OtpPurpose.FORGOT_PASSWORD) {
+            return ResponseEntity.badRequest().body("Yêu cầu không hợp lệ.");
+        }
+        try {
+            authService.resendOtp(email.trim(), otpPurpose);
+            return ResponseEntity.noContent().build();
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        }
+    }
+
     private OtpPurpose tryParsePurpose(final String purpose) {
         try {
             return OtpPurpose.valueOf(purpose);

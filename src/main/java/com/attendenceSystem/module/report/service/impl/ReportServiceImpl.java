@@ -2,7 +2,9 @@ package com.attendenceSystem.module.report.service.impl;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +25,7 @@ import com.attendenceSystem.module.report.repository.ReportShareRepository;
 import com.attendenceSystem.module.report.service.ReportService;
 import com.attendenceSystem.module.storage.service.FileStorageService;
 import com.attendenceSystem.module.user.entity.User;
+import com.attendenceSystem.module.user.entity.enums.Role;
 import com.attendenceSystem.module.user.provider.UserContextProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -85,12 +88,16 @@ public class ReportServiceImpl implements ReportService {
         return ReportResponseMapper.fromEntity(savedReport);
     }
 
+    // readOnly transaction: attachment_files là @Lob (oid trên Postgres), đọc ngoài transaction sẽ lỗi
+    @Transactional(readOnly = true)
     @Override
     public Page<ReportResponse> getAllReports(final Pageable pageable) {
         return reportRepository.findAllByOrderByCreatedAtDesc(pageable)
                 .map(ReportResponseMapper::fromEntity);
     }
 
+    // readOnly transaction: attachment_files là @Lob (oid trên Postgres), đọc ngoài transaction sẽ lỗi
+    @Transactional(readOnly = true)
     @Override
     public Page<ReportResponse> getMyReports(final Pageable pageable) {
         User employee = userContextProvider.getCurrentUserEntity();
@@ -98,6 +105,8 @@ public class ReportServiceImpl implements ReportService {
                 .map(ReportResponseMapper::fromEntity);
     }
 
+    // readOnly transaction: attachment_files là @Lob (oid trên Postgres), đọc ngoài transaction sẽ lỗi
+    @Transactional(readOnly = true)
     @Override
     public Page<ReportResponse> getSharedWithMe(final Pageable pageable) {
         User currentUser = userContextProvider.getCurrentUserEntity();
@@ -105,10 +114,38 @@ public class ReportServiceImpl implements ReportService {
                 .map(ReportResponseMapper::fromEntity);
     }
 
+    /** Không có quyền cũng trả "không tìm thấy" để không dò được id báo cáo nào tồn tại. */
+    // readOnly transaction: attachment_files là @Lob (oid trên Postgres), đọc ngoài transaction sẽ lỗi
+    @Transactional(readOnly = true)
     @Override
     public ReportDetailResponse getReportById(final Long id) {
+        User viewer = userContextProvider.getCurrentUserEntity();
         Report report = reportRepository.findByIdWithShares(id)
+                .filter(r -> canView(r, viewer))
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy báo cáo với id: " + id));
         return ReportDetailResponseMapper.fromEntity(report);
+    }
+
+    /**
+     * File đính kèm (vd "/uploads/reports/<sha256>.pdf") xem được nếu nằm trong một báo cáo người đang đăng nhập
+     * xem được. readOnly transaction: đọc cột @Lob (oid) trên Postgres cần transaction.
+     */
+    @Transactional(readOnly = true)
+    @Override
+    public boolean canViewAttachment(final String fileUrl) {
+        User viewer = userContextProvider.getCurrentUserEntity();
+        return viewer.getRole() == Role.ADMIN || reportRepository.findVisibleTo(viewer.getId()).stream()
+                .map(Report::getAttachmentFiles)
+                .filter(Objects::nonNull)
+                .anyMatch(files -> Arrays.asList(files.split(",")).contains(fileUrl));
+    }
+
+    /** Người nộp, người được chia sẻ, hoặc ADMIN — khớp với danh sách my-reports / shared-with-me. */
+    static boolean canView(final Report report, final User viewer) {
+        Long viewerId = viewer.getId();
+        return viewer.getRole() == Role.ADMIN
+                || report.getEmployee().getId().equals(viewerId)
+                || report.getShares() != null && report.getShares().stream()
+                        .anyMatch(share -> share.getUser().getId().equals(viewerId));
     }
 }

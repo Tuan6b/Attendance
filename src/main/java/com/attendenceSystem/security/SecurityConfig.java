@@ -19,6 +19,8 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 
 import com.attendenceSystem.constant.Routes;
 import com.attendenceSystem.module.faceid.filter.FaceIdApiKeyFilter;
@@ -34,6 +36,7 @@ public class SecurityConfig {
     private final FaceIdApiKeyFilter faceIdApiKeyFilter;
     private final CustomUserDetailsService userDetailsService;
     private final AuthenticationConfiguration authenticationConfiguration;
+    private final CorsConfigurationSource corsConfigurationSource;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -51,7 +54,10 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
+                // Token CSRF của Spring tắt (form/fetch hiện có không gửi token); thay bằng OriginCheckFilter
+                // + cookie phiên SameSite=Lax (application.properties)
                 .csrf(csrf -> csrf.disable())
+                .addFilterAfter(new OriginCheckFilter(corsConfigurationSource), CorsFilter.class)
                 .authenticationProvider(authenticationProvider())
                 .securityContext(context -> context.securityContextRepository(securityContextRepository()))
                 .sessionManagement(session -> session
@@ -68,9 +74,11 @@ public class SecurityConfig {
                                 "/favicon.ico", "/error").permitAll()
                         // /uploads/** (ảnh khuôn mặt, ảnh bằng chứng, file báo cáo) KHÔNG công khai: cần đăng nhập,
                         // UploadController kiểm tra thêm quyền theo từng loại file
-                        // Các API đăng nhập / OTP
-                        .requestMatchers(Routes.API + Routes.Auth.ROOT + "/**",
-                                Routes.API + Routes.Otp.ROOT + "/**").permitAll()
+                        // Các API đăng nhập
+                        .requestMatchers(Routes.API + Routes.Auth.ROOT + "/**").permitAll()
+                        // Gửi/xác thực OTP theo địa chỉ tuỳ ý: chỉ mobile gateway (X-API-Key). Trang web
+                        // gửi lại mã qua POST /auth/verify-otp/resend (chỉ gửi tới email có tài khoản).
+                        .requestMatchers(Routes.API + Routes.Otp.ROOT + "/**").hasRole(FaceIdApiKeyFilter.ROLE)
                         // ------------------- Face ID -------------------
                         // Chấm công khuôn mặt: chỉ mobile gateway (X-API-Key, xem FaceIdApiKeyFilter)
                         .requestMatchers(Routes.API + Routes.FaceId.ROOT + "/attendance")
@@ -87,6 +95,8 @@ public class SecurityConfig {
                         // Còn lại (GET /face-id/create, API đăng ký của chính mình...) rơi xuống anyRequest().authenticated()
 
                         // ------------------- ADMIN -------------------
+                        // Danh sách MỌI báo cáo (giao diện không dùng; nhân viên xem my-reports / shared-with-me)
+                        .requestMatchers(HttpMethod.GET, Routes.API + Routes.Report.ROOT).hasRole("ADMIN")
                         .requestMatchers(Routes.Role.ADMIN + "/**",
                                 Routes.API + Routes.Role.ADMIN + "/**",
                                 Routes.System.ROOT + "/**",

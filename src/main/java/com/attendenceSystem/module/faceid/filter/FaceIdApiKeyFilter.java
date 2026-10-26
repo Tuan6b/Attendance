@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,10 +20,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Xác thực mobile gateway trên {@code POST /api/face-id/attendance} bằng header {@code X-API-Key}
- * (= {@code face-id.api-key}, bên gateway là ATTENDANCE_API_KEY). Key đúng → request này mang
- * {@code ROLE_FACE_GATEWAY} (SecurityConfig chỉ cho role đó chấm công); key sai → 401 luôn; không
- * có header → đi tiếp như request thường (SecurityConfig sẽ chặn).
+ * Xác thực mobile gateway bằng header {@code X-API-Key} (= {@code face-id.api-key}, bên gateway là
+ * ATTENDANCE_API_KEY) trên các API chỉ gateway được gọi: chấm công khuôn mặt và gửi/xác thực OTP.
+ * Key đúng → request này mang {@code ROLE_GATEWAY} (SecurityConfig chỉ cho role đó); key sai → 401
+ * luôn; không có header → đi tiếp như request thường (SecurityConfig sẽ chặn).
  *
  * <p>Nằm TRONG chuỗi Spring Security (SecurityConfig.addFilterBefore, đăng ký servlet tự động bị
  * tắt): đặt ngoài chuỗi thì SecurityContextHolderFilter sẽ ghi đè authentication đặt ở đây.
@@ -32,8 +33,9 @@ import jakarta.servlet.http.HttpServletResponse;
 public class FaceIdApiKeyFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-API-Key";
-    public static final String ROLE = "FACE_GATEWAY";
-    private static final String ATTENDANCE_PATH = "/api/face-id/attendance";
+    public static final String ROLE = "GATEWAY";
+    private static final Set<String> GATEWAY_PATHS = Set.of(
+            "/api/face-id/attendance", "/api/otp/send", "/api/otp/verify");
     private static final int MIN_KEY_LENGTH = 32;
 
     private final byte[] apiKey;
@@ -47,7 +49,7 @@ public class FaceIdApiKeyFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !ATTENDANCE_PATH.equals(request.getRequestURI());
+        return !GATEWAY_PATHS.contains(request.getRequestURI());
     }
 
     @Override
