@@ -2,7 +2,7 @@
 # Đóng gói bàn giao cho Team IA kiểm thử bảo mật (xem docs/HANDOVER-SECURITY-TEST.md).
 #
 #   sectest/package.sh --host <ip máy chạy môi trường test> [--tag sec-test-YYYY-MM-DD | --no-tag]
-#                      [--out <thư mục>] [--images] [--allow-dirty]
+#                      [--out <thư mục>] [--images] [--allow-dirty] [--contact "<tên, kênh liên lạc>"]
 #                      [--mobile-dir <repo mobileBackend>] [--android-dir <repo DxLabAttendance>]
 #
 # Gói gồm: mã nguồn 3 repo tại cùng một tag (git archive: KHÔNG kèm lịch sử, KHÔNG kèm .env/DB/ảnh), SBOM,
@@ -11,7 +11,7 @@
 # Cần: git, docker (khi --images), JDK (keytool), Android SDK (local.properties của repo app), openssl.
 set -euo pipefail
 
-HOST="" TAG="" NO_TAG=false OUT="" IMAGES=false ALLOW_DIRTY=false
+HOST="" TAG="" NO_TAG=false OUT="" IMAGES=false ALLOW_DIRTY=false CONTACT=""
 GATEWAY_PORT=8081 BACKEND_PORT=9090 MAILPIT_UI_PORT=8025
 ROOT=$(git rev-parse --show-toplevel)
 MAIN=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")   # checkout chính (kể cả khi chạy trong worktree)
@@ -26,6 +26,7 @@ while [ $# -gt 0 ]; do
         --out) OUT=$2; shift 2 ;;
         --images) IMAGES=true; shift ;;
         --allow-dirty) ALLOW_DIRTY=true; shift ;;
+        --contact) CONTACT=$2; shift 2 ;;
         --mobile-dir) MOBILE_DIR=$2; shift 2 ;;
         --android-dir) ANDROID_DIR=$2; shift 2 ;;
         *) echo "Tham số không hợp lệ: $1"; exit 2 ;;
@@ -71,7 +72,7 @@ echo "== 2. Xuất mã nguồn tại $REF (không lịch sử, không secret/d�
     done
 } > "$OUT/VERSIONS.txt"
 cat "$OUT/VERSIONS.txt"
-if grep -rlI -e 'Admin@123' -e 'doi-thanh-chuoi-bi-mat' "$OUT/src" --exclude=*.md; then
+if grep -rlI -e 'Admin@123' -e 'doi-thanh-chuoi-bi-mat' "$OUT/src" --exclude=*.md --exclude=package.sh; then
     echo "  CẢNH BÁO: còn secret cũ trong mã nguồn ở các file trên"
 fi
 
@@ -146,7 +147,13 @@ cp "$APP/app/build/outputs/apk/debug/app-debug.apk" "$OUT/apk/DxLabAttendance-$N
 rm -rf "$APP/local.properties" "$APP/app/build" "$APP/build" "$APP/.gradle" "$APP/.kotlin"
 
 echo "== 6. Tài liệu"
-cp "$ROOT/docs/HANDOVER-SECURITY-TEST.md" "$OUT/README.md"
+# README: điền IP máy test và (nếu có) thông tin liên hệ
+sed "s|<host>|$HOST|g" "$ROOT/docs/HANDOVER-SECURITY-TEST.md" > "$OUT/README.md"
+if [ -n "$CONTACT" ]; then
+    # qua ENVIRON để ký tự | & \ trong thông tin liên hệ không bị hiểu là cú pháp
+    CONTACT="$CONTACT" awk '/^Liên hệ: /{print "Liên hệ: " ENVIRON["CONTACT"]; next} {print}' \
+        "$OUT/README.md" > "$OUT/README.md.tmp" && mv "$OUT/README.md.tmp" "$OUT/README.md"
+fi
 cp "$ROOT/docs/SECURITY-AUDIT.md" "$ROOT/docs/ONBOARDING.md" "$OUT/docs/"
 cp "$OUT/src/mobileBackend/docs/mobile-api.md" "$OUT/docs/" 2>/dev/null || true
 
@@ -163,3 +170,4 @@ fi
 echo
 echo "Xong: $OUT ($(du -sh "$OUT" | cut -f1))"
 echo "Gửi thư mục (trừ CREDENTIALS.txt, CREDENTIALS.env) qua kênh an toàn; 2 file CREDENTIALS.* gửi riêng."
+[ -n "$CONTACT" ] || echo "Chưa có --contact: điền mục \"Liên hệ\" trong README.md trước khi gửi (rồi cập nhật SHA256SUMS)."

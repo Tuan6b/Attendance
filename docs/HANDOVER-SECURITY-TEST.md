@@ -3,6 +3,9 @@
 Tài liệu này là `README.md` của gói bàn giao cho Team IA. Phiên bản chính xác của từng thành phần nằm trong
 `VERSIONS.txt` (commit hash + tag). Khi báo lỗi, ghi rõ tag của gói.
 
+> **Gói này được đóng cho máy chạy môi trường test có IP `<host>`.** APK trong `apk/` gọi gateway ở
+> `http://<host>:8081`. Dựng môi trường ở máy khác/IP khác thì xem mục 4.3.
+
 ## 1. Thành phần
 
 | Thành phần | Công nghệ | Vai trò | Truy cập trong môi trường test |
@@ -46,15 +49,27 @@ CREDENTIALS.txt/.env       gửi RIÊNG — mật khẩu các tài khoản test
 
 ## 3. Dựng môi trường
 
-Yêu cầu: Docker (compose v2), `curl`, ~8 GB RAM. Lần build đầu face-ai tải thư viện và model InsightFace (cần Internet).
+Yêu cầu: Docker có compose v2 (Linux, macOS, hoặc Docker Desktop trên Windows), `bash`, `curl`, ~8 GB RAM, ~10 GB đĩa.
 
-1. Đặt `CREDENTIALS.env` (nhận riêng) vào thư mục gốc của gói.
+1. Đặt `CREDENTIALS.env` (nhận riêng) vào thư mục gốc của gói (cùng cấp với `README.md`).
 2. Nếu có `images/`: `docker load -i images/sectest-images.tar`, rồi `deploy/start.sh --no-build`.
-   Không có thì: `deploy/start.sh` (build từ `src/`).
+   Không có thì: `deploy/start.sh` (build từ `src/`, lần đầu mất 10–20 phút).
 3. Script tự: khởi động Postgres, Mailpit, face-ai, backend → chờ backend tạo bảng → `init-db.sql` (role DB của
    gateway, tài khoản test, trỏ email hệ thống sang Mailpit) → khởi động gateway.
+4. Kiểm tra: mở `http://<host>:9090` (trang đăng nhập), `http://<host>:8081/actuator/health` (`{"status":"UP"}`),
+   `http://<host>:8025` (Mailpit).
 
 Cổng publish: 9090 (web), 8081 (gateway), 8025 (Mailpit). Postgres và face-ai không publish. Đổi cổng trong `deploy/.env`.
+
+**Windows**: chạy `start.sh` bằng **Git Bash** (đi kèm Git for Windows) hoặc WSL, không chạy bằng PowerShell/cmd.
+Mở tường lửa để điện thoại và máy của IA truy cập được (PowerShell quyền Administrator):
+`New-NetFirewallRule -DisplayName "attendance-sectest" -Direction Inbound -Protocol TCP -LocalPort 9090,8081,8025 -Action Allow`.
+
+**Internet**: build image cần tải thư viện (Maven, pip, Docker Hub). face-ai còn tải model InsightFace `buffalo_l`
+(~300 MB) **ở lần khởi động đầu**, kể cả khi dùng `images/`. Môi trường không có Internet: báo team phát triển để
+gói kèm image và model.
+
+Dừng: `docker compose down` trong `deploy/`. Xoá sạch dữ liệu để làm lại từ đầu: `docker compose down -v` rồi chạy lại `start.sh`.
 
 ## 4. Tài khoản và dữ liệu test
 
@@ -67,14 +82,50 @@ Cổng publish: 9090 (web), 8081 (gateway), 8025 (Mailpit). Postgres và face-ai
 
 Mật khẩu trong `CREDENTIALS.txt`. Tạo thêm nhân viên qua trang đăng ký (OTP xem ở Mailpit) hoặc bằng `ia.admin`.
 
-Để thử chấm công khuôn mặt:
+### 4.1. Giờ ca (làm trước khi thử chấm công)
+
+Chưa cấu hình thì hệ thống dùng giờ mặc định: vào ca 08:30, **chậm nhất 10:00 mới được vào ca**, **sớm nhất 16:00
+mới được tan ca**, tan ca 17:30; mọi ngày trong tuần đều là ngày làm. Giờ tính theo múi `Asia/Ho_Chi_Minh` (UTC+7).
+Ngoài các khung này, chấm công bị từ chối đúng nghiệp vụ ("Đã quá thời gian ca làm...", "Chưa đến thời gian tối thiểu
+để checkout") — không phải lỗi.
+
+Để thử bất kỳ lúc nào: đăng nhập `ia.admin` → `http://<host>:9090/system/setting` → mục giờ làm, đặt
+`attendance.max-check-in-time` = 23:59 và `attendance.min-check-out-time` = 00:00 → lưu. Mỗi nhân viên chỉ vào ca
+1 lần và tan ca 1 lần mỗi ngày; muốn thử lại thì tạo thêm nhân viên hoặc đợi sang ngày.
+
+### 4.2. Thử chấm công khuôn mặt
+
 1. Đăng nhập `ia.employee` → Face ID → đăng ký 5 ảnh khuôn mặt (dùng mặt của người trong team IA, **không dùng ảnh nhân viên thật**).
-2. Đăng nhập `ia.manager` → Face ID → duyệt hồ sơ (chưa duyệt thì không chấm công được).
-3. Cài APK lên máy Android 12+ (`adb install apk/*.apk`), mở app → kích hoạt bằng `ia.checker`.
-4. Đứng trước máy quét; trong giờ ca (cấu hình ở trang hệ thống của `ia.admin`).
+2. Đăng nhập `ia.manager` → Face ID → duyệt hồ sơ (chưa duyệt thì không chấm công được; mỗi lần cập nhật ảnh phải duyệt lại).
+3. Cài APK lên máy Android 12+ có camera trước (`adb install apk/*.apk`), máy cùng mạng với `<host>`.
+   Mở app → màn kích hoạt → nhập `ia.checker` và mật khẩu.
+4. Đứng trước máy quét, nhìn thẳng; máy nhận ra 2 khung liên tiếp thì tự chụp và chấm công, hiện kết quả 3 giây.
 
 Chế độ kiosk (khoá máy vào app) chỉ bật khi app là device owner — máy đã reset, chưa có tài khoản Google:
 `adb shell dpm set-device-owner com.DxLab.dxlabattendance/.kiosk.CheckerDeviceAdminReceiver`.
+Gỡ: `adb shell dpm remove-active-admin com.DxLab.dxlabattendance/.kiosk.CheckerDeviceAdminReceiver` (máy test) hoặc reset máy.
+
+### 4.3. APK và địa chỉ gateway
+
+APK debug được build cho `http://<host>:8081`. Nếu chạy môi trường ở máy có IP khác:
+- báo IP cho team phát triển để đóng gói lại, **hoặc**
+- tự build lại (cần JDK 17+ và Android SDK, `ANDROID_HOME` hoặc `src/DxLabAttendance/local.properties`):
+  `cd src/DxLabAttendance && ./gradlew assembleDebug -PcheckerDebugBaseUrl=http://<ip-mới>:8081`
+  → `app/build/outputs/apk/debug/app-debug.apk`.
+
+### 4.4. Phiên đăng nhập của máy quét
+
+App không lưu mật khẩu, chỉ giữ refresh token (30 ngày, đổi mới mỗi lần làm mới access token 15 phút). App quay về
+màn kích hoạt khi refresh token hết hạn/bị thu hồi, hoặc khi xoá dữ liệu app. Thu hồi mọi phiên của máy quét
+(chạy trong `deploy/`):
+`docker compose exec postgres psql -U postgres -d attendance -c "DELETE FROM mobile_auth.mobile_refresh_token WHERE username = 'ia.checker'"`.
+App phát hiện ở lần làm mới token kế tiếp (tối đa 15 phút).
+
+### 4.5. OTP khi đăng nhập gateway (tuỳ chọn)
+
+Mặc định tắt. Bật: đặt `LOGIN_OTP_ENABLED=true` trong `deploy/mobile-backend.env` → `docker compose up -d mobile-backend`
+(trong `deploy/`). App máy quét chưa hỗ trợ màn nhập OTP (sẽ báo lỗi), nên thử luồng này qua API
+`/api/v1/auth/login` → `/api/v1/auth/login/otp` (xem `docs/mobile-api.md`); mã OTP xem ở Mailpit.
 
 ## 5. Khác biệt so với bản phát hành (đã biết, không cần báo lại)
 
@@ -84,7 +135,24 @@ Chế độ kiosk (khoá máy vào app) chỉ bật khi app là device owner —
 - Toàn bộ dịch vụ chạy HTTP trong LAN (H2). Đánh giá rủi ro nghe lén là hợp lệ nhưng đã biết.
 - Email hệ thống trỏ vào Mailpit thay vì SMTP thật (cấu hình `APP_MAIL_HOST/PORT/STARTTLS`).
 
-## 6. Phạm vi kiểm thử
+## 6. Xử lý sự cố
+
+Chạy trong `deploy/`:
+
+| Hiện tượng | Kiểm tra / cách xử lý |
+|---|---|
+| `start.sh` báo thiếu `CREDENTIALS.env` | Đặt file nhận riêng vào thư mục gốc gói |
+| Backend không lên sau 7,5 phút | `docker compose logs backend`; chạy lại `start.sh` (chạy lại nhiều lần an toàn) |
+| Gateway khởi động lại liên tục | `docker compose logs mobile-backend`; thường do bước 3/4 của `start.sh` chưa chạy xong → chạy lại `start.sh` |
+| Đăng ký khuôn mặt/chấm công báo AI không khả dụng | `docker compose logs face-ai` — lần đầu đang tải model, đợi vài phút; không có Internet thì xem mục 3 |
+| App báo "Mất kết nối tới máy chủ" | Điện thoại khác mạng với `<host>`, tường lửa chặn 8081, hoặc APK build cho IP khác (mục 4.3) |
+| Không nhận được OTP | Mở Mailpit `http://<host>:8025`; gửi lại có thời gian chờ 90 giây |
+| Chấm công bị từ chối "quá thời gian"/"chưa đến thời gian" | Đúng nghiệp vụ giờ ca — xem mục 4.1 |
+| "Khuôn mặt chưa được quản lý duyệt" | `ia.manager` duyệt hồ sơ ở trang Face ID |
+
+Trạng thái chung: `docker compose ps`. Log theo thời gian thực: `docker compose logs -f <dịch vụ>`.
+
+## 7. Phạm vi kiểm thử
 
 **Trong phạm vi**: mọi endpoint của Attendance (9090) và gateway (8081); app máy quét (APK, giao tiếp mạng, lưu trữ
 trên máy, chế độ kiosk); chống giả mạo khuôn mặt (ảnh in, màn hình, video) ở máy quét và qua API; phân quyền giữa các
@@ -99,7 +167,7 @@ khuôn mặt, dữ liệu, tài khoản thật của nhân viên; dữ liệu v�
 
 Liên hệ: `<tên, kênh liên lạc của team phát triển>` — điền trước khi gửi.
 
-## 7. Lỗi đã biết và việc cần kiểm thử lại
+## 8. Lỗi đã biết và việc cần kiểm thử lại
 
 Xem đầy đủ trong `docs/SECURITY-AUDIT.md`. Tóm tắt:
 
@@ -123,7 +191,7 @@ H2 (không TLS), M1–M2 (secret cũ và DB trong lịch sử git — gói này 
 M5 (gateway đặt lại mật khẩu không qua Attendance), M8 (luồng OAuth2 PKCE thừa ở gateway), các mục "Thấp" và
 "Rủi ro đã chấp nhận" trong `docs/SECURITY-AUDIT.md`.
 
-## 8. Báo cáo lỗi
+## 9. Báo cáo lỗi
 
 Mỗi lỗi: tag gói, thành phần, endpoint/màn hình, bước tái hiện, request/response mẫu, mức độ (CVSS nếu có),
 đề xuất. Không đính kèm ảnh khuôn mặt người thật vào báo cáo.
