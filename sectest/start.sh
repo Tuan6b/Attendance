@@ -2,7 +2,7 @@
 # Dựng môi trường kiểm thử bảo mật từ gói bàn giao. Chạy trong thư mục deploy/ của gói:
 #   ./start.sh            # build (lần đầu) + khởi động + khởi tạo DB
 #   ./start.sh --no-build # dùng image đã nạp sẵn từ images/*.tar (docker load)
-# Cần: Docker có compose v2, curl. Lần đầu face-ai tải model InsightFace (cần Internet).
+# Cần: Docker có compose v2, curl. Build cần Internet (thư viện + model InsightFace đóng sẵn vào image face-ai).
 set -euo pipefail
 cd "$(dirname "$0")"
 

@@ -1,11 +1,13 @@
 package com.attendenceSystem.module.attendance.service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -30,12 +32,19 @@ class LeaveScheduleServiceImplTest {
     @Mock
     private SystemConfig systemConfig;
 
-    @InjectMocks
+    private static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+
     private LeaveScheduleServiceImpl leaveScheduleService;
+
+    @BeforeEach
+    void setUp() {
+        // ZoneId là bean (ứng dụng chạy giờ VN), @InjectMocks không tạo được → khởi tạo tay.
+        leaveScheduleService = new LeaveScheduleServiceImpl(leaveRequestRepository, systemConfig, ZONE);
+    }
 
     @Test
     void testAutoRejectExpiredLeaveRequests() {
-        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        LocalDate tomorrow = LocalDate.now(ZONE).plusDays(1);
         User user = User.builder()
                 .id(1L)
                 .build();
@@ -58,7 +67,7 @@ class LeaveScheduleServiceImplTest {
 
     @Test
     void testAutoRejectWithNoExpiredLeaves() {
-        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        LocalDate tomorrow = LocalDate.now(ZONE).plusDays(1);
         when(leaveRequestRepository.findByStatusAndStartDateLessThanEqual(LeaveStatus.PENDING, tomorrow))
                 .thenReturn(List.of());
 

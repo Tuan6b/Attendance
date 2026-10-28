@@ -14,6 +14,9 @@ Tài liệu này là `README.md` của gói bàn giao cho Team IA. Phiên bản 
 | Gateway 8081: đăng nhập trên trình duyệt xong báo 404 | Gateway chỉ là API, không có giao diện web; form `/login` còn sót lại từ luồng OAuth2 PKCE cũ | Bỏ form `/login` và luồng PKCE (audit M8). Mọi đường dẫn ngoài `/api/**`, `/oauth2/token` (client_credentials) và `/actuator/health` trả 403 |
 | APK không kết nối được máy chủ dù cùng mạng | APK gắn cứng IP của máy đóng gói, IA chạy môi trường trên máy khác | Bản debug có ô "Địa chỉ máy chủ" trên màn kích hoạt, không cần build lại APK |
 
+Ngoài ra: model InsightFace được đóng sẵn vào image face-ai (trước đây tải ~300 MB mỗi lần tạo lại container); gói có `deploy/verify.sh` để tự kiểm tra môi trường sau khi dựng (mục 3), và `docs/PRE-HANDOVER-TEST-REPORT.md`
+— kết quả unit/integration/E2E và thử trên thiết bị thật mà team phát triển đã chạy trên chính gói này trước khi gửi.
+
 ## 1. Thành phần
 
 | Thành phần | Công nghệ | Vai trò | Truy cập trong môi trường test |
@@ -47,10 +50,11 @@ README.md                  tài liệu này
 VERSIONS.txt               commit/tag của 3 repo
 SHA256SUMS                 checksum mọi file (trừ CREDENTIALS.*)
 src/                       mã nguồn tại tag — không kèm lịch sử git, .env, DB, ảnh khuôn mặt
-deploy/                    docker-compose.yml, start.sh, init-db.sql, secret của RIÊNG môi trường test
+deploy/                    docker-compose.yml, start.sh, init-db.sql, verify.sh (tự kiểm tra), secret của RIÊNG môi trường test
 apk/                       APK debug của app máy quét, trỏ về gateway của môi trường test
 sbom/                      CycloneDX (2 dịch vụ Java), danh sách thư viện Android, requirements face-ai
-docs/                      SECURITY-AUDIT.md (lỗi đã biết), ONBOARDING.md, mobile-api.md
+docs/                      SECURITY-AUDIT.md (lỗi đã biết), PRE-HANDOVER-TEST-REPORT.md (kết quả test trước bàn giao),
+                           ONBOARDING.md, mobile-api.md
 images/ (tuỳ chọn)         docker image đã build sẵn (docker load -i images/sectest-images.tar)
 CREDENTIALS.txt/.env       gửi RIÊNG — mật khẩu các tài khoản test
 ```
@@ -67,6 +71,10 @@ Yêu cầu: Docker có compose v2 (Linux, macOS, hoặc Docker Desktop trên Win
 4. Kiểm tra: mở `http://<host>:9090` (trang đăng nhập), `http://<host>:8081/actuator/health` (`{"status":"UP"}`),
    `http://<host>:8025` (Mailpit). Gateway không có trang web: mở `http://<host>:8081/` trên trình duyệt trả 403 là
    đúng; thử gateway bằng API (`docs/mobile-api.md`) hoặc qua app.
+5. (Khuyến nghị) Tự kiểm tra toàn bộ: `cd deploy && ./verify.sh <host>` — khoảng 1 phút, in PASS/FAIL cho 53 kiểm tra:
+   đăng nhập từng role, phân quyền, gateway, OTP, và một lượt chấm công đầy đủ (đăng ký mặt → duyệt → vào ca → tan ca).
+   Script **tạo dữ liệu** (mặt và chấm công của `ia.employee`, giờ ca nới rộng); muốn bắt đầu kiểm thử từ môi trường sạch thì
+   chạy tiếp `docker compose down -v && ./start.sh`. Có mục FAIL thì gửi kèm toàn bộ output cho team phát triển.
 
 Cổng publish: 9090 (web), 8081 (gateway), 8025 (Mailpit). Postgres và face-ai không publish. Đổi cổng trong `deploy/.env`.
 
@@ -74,9 +82,9 @@ Cổng publish: 9090 (web), 8081 (gateway), 8025 (Mailpit). Postgres và face-ai
 Mở tường lửa để điện thoại và máy của IA truy cập được (PowerShell quyền Administrator):
 `New-NetFirewallRule -DisplayName "attendance-sectest" -Direction Inbound -Protocol TCP -LocalPort 9090,8081,8025 -Action Allow`.
 
-**Internet**: build image cần tải thư viện (Maven, pip, Docker Hub). face-ai còn tải model InsightFace `buffalo_l`
-(~300 MB) **ở lần khởi động đầu**, kể cả khi dùng `images/`. Môi trường không có Internet: báo team phát triển để
-gói kèm image và model.
+**Internet**: chỉ cần khi **build** image (Maven, pip, Docker Hub, và model InsightFace `buffalo_l` ~300 MB tải từ GitHub
+— được đóng sẵn vào image face-ai). Khởi động, `docker compose down -v` rồi dựng lại đều không tải gì thêm. Dùng `images/`
+(nếu gói kèm) thì không cần Internet. Mạng chậm thì bước build face-ai có thể mất lâu — đó là đang tải model, không phải treo.
 
 Dừng: `docker compose down` trong `deploy/`. Xoá sạch dữ liệu để làm lại từ đầu: `docker compose down -v` rồi chạy lại `start.sh`.
 
@@ -159,7 +167,7 @@ Chạy trong `deploy/`:
 | `start.sh` báo thiếu `CREDENTIALS.env` | Đặt file nhận riêng vào thư mục gốc gói |
 | Backend không lên sau 7,5 phút | `docker compose logs backend`; chạy lại `start.sh` (chạy lại nhiều lần an toàn) |
 | Gateway khởi động lại liên tục | `docker compose logs mobile-backend`; thường do bước 3/4 của `start.sh` chưa chạy xong → chạy lại `start.sh` |
-| Đăng ký khuôn mặt/chấm công báo AI không khả dụng | `docker compose logs face-ai` — lần đầu đang tải model, đợi vài phút; không có Internet thì xem mục 3 |
+| Đăng ký khuôn mặt/chấm công báo AI không khả dụng | `docker compose logs face-ai` — face-ai cần ~1 phút để nạp model sau khi khởi động; container dừng/khởi động lại liên tục thì gửi log cho team phát triển |
 | App báo "Không kết nối được máy chủ" | Ô "Địa chỉ máy chủ" sai IP hoặc dùng `localhost` (mục 4.3), điện thoại khác mạng, tường lửa chặn 8081 — thử `http://<ip>:8081/actuator/health` trên trình duyệt điện thoại |
 | Mở `http://<host>:8081` trên trình duyệt báo 403 | Đúng thiết kế: gateway chỉ có API, không có trang web |
 | Không nhận được OTP | Mở Mailpit `http://<host>:8025`; gửi lại có thời gian chờ 90 giây |

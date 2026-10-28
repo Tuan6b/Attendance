@@ -126,9 +126,10 @@ Hộp thư OTP (Mailpit)  http://$HOST:$MAILPIT_UI_PORT
 Các API key/secret còn lại nằm trong deploy/.env, deploy/*.env (secret của môi trường test).
 CREDENTIALS.env (cùng nội dung, dạng máy đọc) phải đặt ở thư mục gốc gói trước khi chạy deploy/start.sh.
 EOF
-cp "$ROOT/sectest/docker-compose.yml" "$ROOT/sectest/init-db.sql" "$ROOT/sectest/start.sh" "$OUT/deploy/"
+cp "$ROOT/sectest/docker-compose.yml" "$ROOT/sectest/init-db.sql" "$ROOT/sectest/start.sh" \
+   "$ROOT/sectest/verify.sh" "$ROOT/sectest/faces.py" "$OUT/deploy/"
 cp "$OUT/src/mobileBackend/src/main/resources/schema-mobile-auth.sql" "$OUT/deploy/"
-chmod +x "$OUT/deploy/start.sh"
+chmod +x "$OUT/deploy/start.sh" "$OUT/deploy/verify.sh"
 
 echo "== 4. SBOM"
 for svc in attendance mobileBackend; do
@@ -153,7 +154,7 @@ if [ -n "$CONTACT" ]; then
     CONTACT="$CONTACT" awk '/^Liên hệ: /{print "Liên hệ: " ENVIRON["CONTACT"]; next} {print}' \
         "$OUT/README.md" > "$OUT/README.md.tmp" && mv "$OUT/README.md.tmp" "$OUT/README.md"
 fi
-cp "$ROOT/docs/SECURITY-AUDIT.md" "$ROOT/docs/ONBOARDING.md" "$OUT/docs/"
+cp "$ROOT/docs/SECURITY-AUDIT.md" "$ROOT/docs/ONBOARDING.md" "$ROOT/docs/PRE-HANDOVER-TEST-REPORT.md" "$OUT/docs/"
 cp "$OUT/src/mobileBackend/docs/mobile-api.md" "$OUT/docs/" 2>/dev/null || true
 
 if $IMAGES; then

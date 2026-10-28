@@ -14,6 +14,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Tải sẵn model InsightFace vào image: khởi động (kể cả sau docker compose down -v) không cần Internet,
+# không phải chờ tải ~300 MB mỗi lần tạo lại container.
+RUN python -c "from insightface.app import FaceAnalysis; FaceAnalysis(name='buffalo_l')"
+
 # Copy application source
 COPY . .
 
