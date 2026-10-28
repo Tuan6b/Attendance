@@ -73,7 +73,12 @@ ok "token giả 401" "$(code -H "Authorization: Bearer ${AT}x" $G/api/v1/me)" 40
 ok "EMPLOYEE không đăng nhập gateway được" "$(code -H 'Content-Type: application/json' -d "{\"username\":\"ia.employee\",\"password\":\"$IA_EMPLOYEE_PASSWORD\"}" $G/api/v1/auth/login)" 401
 R2=$(curl -s -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$RT\"}" $G/api/v1/auth/refresh)
 ok "refresh cấp token mới" "$([ -n "$(echo "$R2" | json accessToken)" ] && echo có)" có
-ok "refresh token cũ bị từ chối (xoay vòng)" "$(code -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$RT\"}" $G/api/v1/auth/refresh)" 401
+ok "refresh token cũ dùng lại được trong ân hạn" "$(code -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$RT\"}" $G/api/v1/auth/refresh)" 200
+# Giả lập hết ân hạn: token đã xoay có hạn ngắn hơn token mới (30 ngày) nhiều — so tương đối, không phụ thuộc múi giờ
+psql_q "UPDATE mobile_auth.mobile_refresh_token SET expires_at = expires_at - interval '400 days' WHERE username = 'ia.checker'
+        AND expires_at < (SELECT max(expires_at) - interval '1 day' FROM mobile_auth.mobile_refresh_token WHERE username = 'ia.checker')" >/dev/null
+ok "refresh token cũ bị từ chối sau ân hạn" "$(code -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$RT\"}" $G/api/v1/auth/refresh)" 401
+ok "refresh token mới vẫn dùng được" "$(code -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$(echo "$R2" | json refreshToken)\"}" $G/api/v1/auth/refresh)" 200
 ok "không có trang web / (403)" "$(code $G/)" 403
 ok "không có form /login (403)" "$(code --data-urlencode username=ia.checker --data-urlencode "password=$IA_CHECKER_PASSWORD" $G/login)" 403
 ok "không có luồng PKCE /oauth2/authorize" "$(code "$G/oauth2/authorize?response_type=code&client_id=mobile-app&redirect_uri=com.attendance://oauth2callback&scope=attendance.check&code_challenge=x&code_challenge_method=S256" | cut -c1)" 4

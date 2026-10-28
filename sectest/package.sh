@@ -103,6 +103,7 @@ SERVER_CLIENT_ID=sectest-server
 SERVER_CLIENT_SECRET=$SERVER_CLIENT_SECRET
 MOBILE_CLIENT_ID=mobile-app
 LOGIN_OTP_ENABLED=false
+REFRESH_REUSE_GRACE=5m
 EOF
 keytool -genkeypair -alias jwt -keyalg RSA -keysize 2048 -storetype PKCS12 -validity 365 -dname "CN=sectest-gateway" \
     -keystore "$OUT/deploy/secrets/jwt.p12" -storepass "$JWT_KEYSTORE_PASSWORD" -keypass "$JWT_KEYSTORE_PASSWORD" 2>/dev/null

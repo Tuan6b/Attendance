@@ -36,7 +36,7 @@ Ranh giới tin cậy và cơ chế xác thực:
 | Cạnh | Xác thực |
 |---|---|
 | Trình duyệt → Attendance | Form login, session cookie (`SameSite=Lax`, `HttpOnly`); chặn POST khác origin (`OriginCheckFilter`) |
-| App → gateway | `/api/v1/auth/login` (CHECKER) → access token JWT 15 phút + refresh token 30 ngày, xoay vòng |
+| App → gateway | `/api/v1/auth/login` (CHECKER) → access token JWT 15 phút + refresh token 30 ngày, xoay vòng (token cũ còn dùng được 5 phút sau khi xoay) |
 | Gateway → Attendance | `X-API-Key` (`FACE_ID_API_KEY`) — chỉ `/api/face-id/attendance`, `/api/otp/send`, `/api/otp/verify` |
 | Attendance, gateway → face-ai | `X-API-Key` (`FACE_AI_API_KEY`), face-ai không publish cổng |
 | Gateway → Postgres | Role `mobile_gateway` (SELECT một số bảng, UPDATE `users.password`, toàn quyền schema `mobile_auth`) |
@@ -138,8 +138,14 @@ Muốn đổi địa chỉ điền sẵn thì build lại (JDK 17+, Android SDK)
 
 ### 4.4. Phiên đăng nhập của máy quét
 
-App không lưu mật khẩu, chỉ giữ refresh token (30 ngày, đổi mới mỗi lần làm mới access token 15 phút). App quay về
-màn kích hoạt khi refresh token hết hạn/bị thu hồi, hoặc khi xoá dữ liệu app. Thu hồi mọi phiên của máy quét
+App không lưu mật khẩu, chỉ giữ refresh token (30 ngày, đổi mới mỗi lần làm mới access token 15 phút — máy chạy liên tục
+không bao giờ phải đăng nhập lại; không giới hạn giờ đăng nhập). App quay về màn kích hoạt khi refresh token hết hạn/bị
+thu hồi, hoặc khi xoá dữ liệu app.
+
+**Ân hạn khi xoay vòng (cố ý)**: sau khi bị xoay, refresh token cũ còn dùng được thêm 5 phút (`REFRESH_REUSE_GRACE` trong
+`deploy/mobile-backend.env`), mỗi lần dùng cấp cặp token mới. Mục đích: phản hồi làm mới mất giữa đường (Wi-Fi chập lúc
+nửa đêm) thì máy quét gửi lại token cũ, không bị văng ra màn kích hoạt. Dùng lại token cũ trong 5 phút đó là hành vi đã
+biết; dùng lại **sau** 5 phút mà vẫn được thì là lỗi. Thu hồi mọi phiên của máy quét
 (chạy trong `deploy/`):
 `docker compose exec postgres psql -U postgres -d attendance -c "DELETE FROM mobile_auth.mobile_refresh_token WHERE username = 'ia.checker'"`.
 App phát hiện ở lần làm mới token kế tiếp (tối đa 15 phút).
