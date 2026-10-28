@@ -102,7 +102,6 @@ JWT_KEY_ALIAS=jwt
 SERVER_CLIENT_ID=sectest-server
 SERVER_CLIENT_SECRET=$SERVER_CLIENT_SECRET
 MOBILE_CLIENT_ID=mobile-app
-MOBILE_REDIRECT_URI=com.attendance://oauth2callback
 LOGIN_OTP_ENABLED=false
 EOF
 keytool -genkeypair -alias jwt -keyalg RSA -keysize 2048 -storetype PKCS12 -validity 365 -dname "CN=sectest-gateway" \

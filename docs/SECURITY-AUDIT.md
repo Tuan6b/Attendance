@@ -37,7 +37,7 @@ nhân viên nào mà không cần mặt, không cần mật khẩu.
 | H4 | 🟠 Cao | ✅ đã sửa · `/api/otp/send` và `/api/otp/verify` mở công khai: gửi mail tới địa chỉ tuỳ ý, thử mã OTP không giới hạn | Attendance |
 | H5 | 🟠 Cao | ✅ đã sửa · Trang duyệt khuôn mặt `/face-id` (danh sách, accept, reject) mở cho người chưa đăng nhập | Attendance |
 | H6 | 🟠 Cao | ✅ đã sửa · Ai đã đăng nhập cũng đọc được mọi báo cáo qua `GET /api/report/{id}` (IDOR) | Attendance |
-| M1–M8 | 🟡 Trung bình | ✅ M3, M6, M7 · ⏳ M1, M2, M4, M5, M8 (xem "Việc còn lại") · Secret bị commit, role CHECKER không tồn tại bên Attendance, quyền DB rộng, app không có kiosk mode... | Nhiều chỗ |
+| M1–M8 | 🟡 Trung bình | ✅ M3, M6, M7 · 🟢 M8 (một phần) · ⏳ M1, M2, M4, M5 (xem "Việc còn lại") · Secret bị commit, role CHECKER không tồn tại bên Attendance, quyền DB rộng, app không có kiosk mode... | Nhiều chỗ |
 
 Ba việc nên sửa ngay, xếp theo thứ tự: **(1)** khoá `/api/face-id/**` và `/uploads/**`, **(2)** giới hạn số lần nhập
 OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@123` ở mọi tài khoản.
@@ -252,7 +252,7 @@ OTP, **(3)** bỏ tài khoản cứng khỏi APK và đổi mật khẩu `Admin@
 | M5 ⏳ | Đặt lại mật khẩu từ gateway ghi thẳng vào DB: bỏ qua chính sách mật khẩu và audit log của Attendance, không huỷ session web | `MobileAuthController.resetPassword` | Gọi qua API của Attendance |
 | M6 | App không chạy kiosk mode: chỉ chặn nút Back, bấm Home hoặc Recents là thoát ra hệ điều hành, vào được Settings và gỡ app | `DxLabAttendance/.../MainActivity.kt:28` | ✅ App có `CheckerDeviceAdminReceiver`. Khi là device owner, app tự `setLockTaskPackages` và `startLockTask()` (`lockTaskMode="if_whitelisted"`), và cấp sẵn quyền camera để máy không kẹt ở hộp thoại xin quyền. Cài 1 lần: `adb shell dpm set-device-owner com.DxLab.dxlabattendance/.kiosk.CheckerDeviceAdminReceiver` (máy đã reset, chưa có tài khoản). Còn thiếu: máy khởi động lại không tự mở app |
 | M7 | Bản release để `isMinifyEnabled = false`, đọc ngược APK rất dễ | `app/build.gradle.kts:26` | ✅ Release bật `isMinifyEnabled` và `isShrinkResources`; APK release còn 3,9 MB. **Chưa chạy thử bản release trên máy thật** |
-| M8 ⏳ | Luồng OAuth2 PKCE (`/oauth2/authorize` + form `/login`) và scope `face.embed` (trả embedding thô) vẫn bật dù app không dùng. Redirect URI dùng custom scheme `com.attendance://` nên app khác có thể chiếm (PKCE giảm thiểu được phần này) | `mobileBackend/.../config/AuthServerConfig.java:82-92`, `SecurityConfig.java:25-37,70-77` | Gỡ luồng không dùng để thu hẹp bề mặt tấn công |
+| M8 🟢 | **Đã gỡ** form `/login`, client `mobile-app` (PKCE) và token customizer của nó; đường dẫn ngoài API/health trả 403. **Còn**: scope `face.embed` + `/face/embed*` trên client_credentials. Mô tả gốc: Luồng OAuth2 PKCE (`/oauth2/authorize` + form `/login`) và scope `face.embed` (trả embedding thô) vẫn bật dù app không dùng. Redirect URI dùng custom scheme `com.attendance://` nên app khác có thể chiếm (PKCE giảm thiểu được phần này) | `mobileBackend/.../config/AuthServerConfig.java:82-92`, `SecurityConfig.java:25-37,70-77` | Gỡ luồng không dùng để thu hẹp bề mặt tấn công |
 
 ## 🔵 Thấp và ghi chú
 
@@ -309,8 +309,9 @@ Sau đó làm tiếp:
   `AttendanceUserDetailsService.updatePassword` gọi `SELECT public.set_checker_password(?, ?)`.
 - **M5:** cách gọn nhất là bỏ `/auth/password/forgot|reset` khỏi gateway. Máy quét không có người dùng tự quên mật khẩu:
   quản trị viên đặt lại mật khẩu CHECKER trên web Attendance, rồi kích hoạt lại máy. Làm vậy thì M4 cũng hết lý do tồn tại.
-- **M8:** xoá chain `authorizationServerChain` và `defaultChain` (form `/login`), client `mobile-app` (PKCE) và scope `face.embed`
-  cùng 2 endpoint `/face/embed*` nếu không server nào dùng. Giữ `client_credentials` nếu còn server gọi.
+- **M8:** ✅ đã gỡ form `/login` và client `mobile-app` (PKCE); `defaultChain` còn `denyAll` trừ health,
+  `authorizationServerChain` giữ cho `/oauth2/token` (client_credentials). Còn lại: bỏ scope `face.embed` cùng 2 endpoint
+  `/face/embed*` nếu không server nào dùng.
 - **H5 bên gateway:** `FaceTemplateRepository.BASE_SQL` thêm `AND p.is_accept = true`.
 - **Thấp:** `JwtDecoder` thêm kiểm tra `aud` (`JwtClaimValidator<List<String>>("aud", aud -> aud.contains(mobileClientId))`).
   Bỏ `"liveness": true` và `cameraId` thừa trong `AttendanceClient.check`.

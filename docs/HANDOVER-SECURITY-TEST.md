@@ -3,8 +3,16 @@
 Tài liệu này là `README.md` của gói bàn giao cho Team IA. Phiên bản chính xác của từng thành phần nằm trong
 `VERSIONS.txt` (commit hash + tag). Khi báo lỗi, ghi rõ tag của gói.
 
-> **Gói này được đóng cho máy chạy môi trường test có IP `<host>`.** APK trong `apk/` gọi gateway ở
-> `http://<host>:8081`. Dựng môi trường ở máy khác/IP khác thì xem mục 4.3.
+> **Gói này được đóng cho máy chạy môi trường test có IP `<host>`.** APK trong `apk/` điền sẵn gateway
+> `http://<host>:8081`. Dựng môi trường ở máy khác/IP khác thì sửa ô "Địa chỉ máy chủ" trên màn kích hoạt (mục 4.3).
+
+**Thay đổi so với gói `sec-test-2026-10-27b`** (theo báo cáo kiểm tra của IA ngày 27/10/2026):
+
+| Báo cáo IA | Nguyên nhân | Đã xử lý |
+|---|---|---|
+| Dashboard admin → "Cài Đặt Hệ Thống" báo 404 | Link trỏ sai `/setting` | Sửa thành `/system/setting` |
+| Gateway 8081: đăng nhập trên trình duyệt xong báo 404 | Gateway chỉ là API, không có giao diện web; form `/login` còn sót lại từ luồng OAuth2 PKCE cũ | Bỏ form `/login` và luồng PKCE (audit M8). Mọi đường dẫn ngoài `/api/**`, `/oauth2/token` (client_credentials) và `/actuator/health` trả 403 |
+| APK không kết nối được máy chủ dù cùng mạng | APK gắn cứng IP của máy đóng gói, IA chạy môi trường trên máy khác | Bản debug có ô "Địa chỉ máy chủ" trên màn kích hoạt, không cần build lại APK |
 
 ## 1. Thành phần
 
@@ -12,7 +20,7 @@ Tài liệu này là `README.md` của gói bàn giao cho Team IA. Phiên bản 
 |---|---|---|---|
 | Attendance (`src/attendance`) | Spring Boot 3, Thymeleaf, Postgres | Web quản trị/nhân viên, nghiệp vụ chấm công, OTP | `http://<host>:9090` (session cookie) |
 | face-ai (`src/attendance/face-ai`) | FastAPI, InsightFace, ONNX | Phát hiện/nhận diện khuôn mặt, kiểm tra người thật | Chỉ nội bộ (`http://face-ai:8002`, `X-API-Key`) |
-| Mobile gateway (`src/mobileBackend`) | Spring Boot, Spring Authorization Server | API cho app máy quét | `http://<host>:8081` (JWT Bearer) |
+| Mobile gateway (`src/mobileBackend`) | Spring Boot, Spring Authorization Server | API cho app máy quét — **không có giao diện web** | `http://<host>:8081/api/v1/...` (JWT Bearer) |
 | App máy quét (`src/DxLabAttendance`) | Android (Kotlin, Compose, CameraX) | Máy quét đặt cố định ở cửa, role CHECKER | `apk/*.apk` |
 | Mailpit | — | Nhận email OTP của môi trường test (không gửi ra ngoài) | `http://<host>:8025` |
 
@@ -57,7 +65,8 @@ Yêu cầu: Docker có compose v2 (Linux, macOS, hoặc Docker Desktop trên Win
 3. Script tự: khởi động Postgres, Mailpit, face-ai, backend → chờ backend tạo bảng → `init-db.sql` (role DB của
    gateway, tài khoản test, trỏ email hệ thống sang Mailpit) → khởi động gateway.
 4. Kiểm tra: mở `http://<host>:9090` (trang đăng nhập), `http://<host>:8081/actuator/health` (`{"status":"UP"}`),
-   `http://<host>:8025` (Mailpit).
+   `http://<host>:8025` (Mailpit). Gateway không có trang web: mở `http://<host>:8081/` trên trình duyệt trả 403 là
+   đúng; thử gateway bằng API (`docs/mobile-api.md`) hoặc qua app.
 
 Cổng publish: 9090 (web), 8081 (gateway), 8025 (Mailpit). Postgres và face-ai không publish. Đổi cổng trong `deploy/.env`.
 
@@ -98,7 +107,7 @@ Ngoài các khung này, chấm công bị từ chối đúng nghiệp vụ ("Đ�
 1. Đăng nhập `ia.employee` → Face ID → đăng ký 5 ảnh khuôn mặt (dùng mặt của người trong team IA, **không dùng ảnh nhân viên thật**).
 2. Đăng nhập `ia.manager` → Face ID → duyệt hồ sơ (chưa duyệt thì không chấm công được; mỗi lần cập nhật ảnh phải duyệt lại).
 3. Cài APK lên máy Android 12+ có camera trước (`adb install apk/*.apk`), máy cùng mạng với `<host>`.
-   Mở app → màn kích hoạt → nhập `ia.checker` và mật khẩu.
+   Mở app → màn kích hoạt → kiểm tra ô "Địa chỉ máy chủ" (mục 4.3) → nhập `ia.checker` và mật khẩu.
 4. Đứng trước máy quét, nhìn thẳng; máy nhận ra 2 khung liên tiếp thì tự chụp và chấm công, hiện kết quả 3 giây.
 
 Chế độ kiosk (khoá máy vào app) chỉ bật khi app là device owner — máy đã reset, chưa có tài khoản Google:
@@ -107,11 +116,17 @@ Gỡ: `adb shell dpm remove-active-admin com.DxLab.dxlabattendance/.kiosk.Checke
 
 ### 4.3. APK và địa chỉ gateway
 
-APK debug được build cho `http://<host>:8081`. Nếu chạy môi trường ở máy có IP khác:
-- báo IP cho team phát triển để đóng gói lại, **hoặc**
-- tự build lại (cần JDK 17+ và Android SDK, `ANDROID_HOME` hoặc `src/DxLabAttendance/local.properties`):
-  `cd src/DxLabAttendance && ./gradlew assembleDebug -PcheckerDebugBaseUrl=http://<ip-mới>:8081`
-  → `app/build/outputs/apk/debug/app-debug.apk`.
+Màn kích hoạt của APK debug có ô **"Địa chỉ máy chủ (gateway)"**, điền sẵn `http://<host>:8081`. Chạy môi trường ở
+máy khác thì nhập `http://<ip-máy-chạy-môi-trường>:8081` (gõ `<ip>:8081` cũng được, app tự thêm `http://`). Lấy IP:
+`ipconfig` (Windows) / `ip addr` (Linux) — chọn IP cùng dải mạng với điện thoại, **không** dùng `localhost`/`127.0.0.1`
+(trên điện thoại đó là chính điện thoại). Kiểm tra trước bằng trình duyệt của điện thoại:
+`http://<ip>:8081/actuator/health` phải ra `{"status":"UP"}`; không ra thì xem tường lửa (mục 3).
+
+Địa chỉ được lưu sau khi kích hoạt thành công và dùng cho mọi lần sau; muốn đổi thì thu hồi phiên (mục 4.4) hoặc xoá
+dữ liệu app để quay lại màn kích hoạt. Bản release không có ô này: địa chỉ gateway cố định lúc build và bắt buộc HTTPS.
+
+Muốn đổi địa chỉ điền sẵn thì build lại (JDK 17+, Android SDK):
+`cd src/DxLabAttendance && ./gradlew assembleDebug -PcheckerDebugBaseUrl=http://<ip>:8081`.
 
 ### 4.4. Phiên đăng nhập của máy quét
 
@@ -145,7 +160,8 @@ Chạy trong `deploy/`:
 | Backend không lên sau 7,5 phút | `docker compose logs backend`; chạy lại `start.sh` (chạy lại nhiều lần an toàn) |
 | Gateway khởi động lại liên tục | `docker compose logs mobile-backend`; thường do bước 3/4 của `start.sh` chưa chạy xong → chạy lại `start.sh` |
 | Đăng ký khuôn mặt/chấm công báo AI không khả dụng | `docker compose logs face-ai` — lần đầu đang tải model, đợi vài phút; không có Internet thì xem mục 3 |
-| App báo "Mất kết nối tới máy chủ" | Điện thoại khác mạng với `<host>`, tường lửa chặn 8081, hoặc APK build cho IP khác (mục 4.3) |
+| App báo "Không kết nối được máy chủ" | Ô "Địa chỉ máy chủ" sai IP hoặc dùng `localhost` (mục 4.3), điện thoại khác mạng, tường lửa chặn 8081 — thử `http://<ip>:8081/actuator/health` trên trình duyệt điện thoại |
+| Mở `http://<host>:8081` trên trình duyệt báo 403 | Đúng thiết kế: gateway chỉ có API, không có trang web |
 | Không nhận được OTP | Mở Mailpit `http://<host>:8025`; gửi lại có thời gian chờ 90 giây |
 | Chấm công bị từ chối "quá thời gian"/"chưa đến thời gian" | Đúng nghiệp vụ giờ ca — xem mục 4.1 |
 | "Khuôn mặt chưa được quản lý duyệt" | `ia.manager` duyệt hồ sơ ở trang Face ID |
@@ -185,10 +201,11 @@ Xem đầy đủ trong `docs/SECURITY-AUDIT.md`. Tóm tắt:
 | H4 | `/api/otp/*` chỉ cho gateway; nút gửi lại mã luôn trả 204 | Gửi OTP tới địa chỉ tuỳ ý; dò email có tài khoản |
 | H6 | Báo cáo chỉ người nộp/được chia sẻ/ADMIN xem được | IDOR `GET /api/report/{id}`, file đính kèm |
 | M3, M6, M7 | Role CHECKER; kiosk lock task; R8 cho release | CHECKER đăng nhập web; thoát kiosk |
+| M8 (một phần) | Bỏ form `/login` và luồng OAuth2 auth code + PKCE ở gateway; chỉ còn client_credentials cho server (scope `face.embed` vẫn còn, đã biết) | `/login`, `/oauth2/authorize` trên 8081; lấy token bằng `authorization_code` |
 
 **Còn mở — đã biết (không cần báo lại, trừ khi tìm ra cách khai thác nghiêm trọng hơn):**
 H2 (không TLS), M1–M2 (secret cũ và DB trong lịch sử git — gói này không kèm lịch sử), M4 (quyền DB của gateway),
-M5 (gateway đặt lại mật khẩu không qua Attendance), M8 (luồng OAuth2 PKCE thừa ở gateway), các mục "Thấp" và
+M5 (gateway đặt lại mật khẩu không qua Attendance), các mục "Thấp" và
 "Rủi ro đã chấp nhận" trong `docs/SECURITY-AUDIT.md`.
 
 ## 9. Báo cáo lỗi
