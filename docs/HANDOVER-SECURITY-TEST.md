@@ -171,6 +171,7 @@ Chạy trong `deploy/`:
 | Hiện tượng | Kiểm tra / cách xử lý |
 |---|---|
 | `start.sh` báo thiếu `CREDENTIALS.env` | Đặt file nhận riêng vào thư mục gốc gói |
+| Build lỗi `Read timed out` / `failed to solve` (pip, Maven, tải model) | Mạng chập khi tải thư viện. Chạy lại `start.sh`: Docker giữ các bước đã xong, chỉ chạy lại bước lỗi (pip và tải model đã tự thử lại nhiều lần) |
 | Backend không lên sau 7,5 phút | `docker compose logs backend`; chạy lại `start.sh` (chạy lại nhiều lần an toàn) |
 | Gateway khởi động lại liên tục | `docker compose logs mobile-backend`; thường do bước 3/4 của `start.sh` chưa chạy xong → chạy lại `start.sh` |
 | Đăng ký khuôn mặt/chấm công báo AI không khả dụng | `docker compose logs face-ai` — face-ai cần ~1 phút để nạp model sau khi khởi động; container dừng/khởi động lại liên tục thì gửi log cho team phát triển |
