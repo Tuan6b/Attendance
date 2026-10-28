@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.attendenceSystem.constant.PasswordPolicy;
 import com.attendenceSystem.exception.custom.BadRequestException;
 import com.attendenceSystem.module.user.dto.request.ChangePasswordRequest;
 import com.attendenceSystem.module.user.dto.request.UpdatePasswordRequest;
@@ -49,6 +50,10 @@ public class UserServiceImpl implements UserService {
     @Transactional
     @Override
     public void updatePassword(final User user, final UpdatePasswordRequest request) {
+        // Chặn ở đây vì form đổi mật khẩu (UserController) tự dựng request, không qua @Valid
+        if (!PasswordPolicy.isValid(request.getPassword())) {
+            throw new BadRequestException(PasswordPolicy.MESSAGE);
+        }
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         userRepository.save(user);
     }

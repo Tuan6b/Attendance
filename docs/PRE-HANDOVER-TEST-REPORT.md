@@ -1,4 +1,8 @@
-# Báo cáo kiểm thử trước bàn giao — gói `sec-test-2026-10-28b`
+# Báo cáo kiểm thử trước bàn giao — gói `sec-test-2026-10-28d`
+
+> Lịch sử trong ngày 28/10: `28b` (bản đầu của báo cáo này) → `28c` thêm ân hạn 5 phút cho refresh token cũ ở gateway
+> (55/55 `verify.sh`) → `28d` thêm chính sách mật khẩu và thử lại khi tải thư viện/model lúc build face-ai. Số liệu dưới
+> đây là của `28d` trừ khi ghi khác.
 
 Ngày chạy: 28/10/2026. Người chạy: team phát triển. Máy chạy: Windows 11 + Docker Desktop (Git Bash), IP `10.33.102.101`;
 điện thoại vivo V2511, Android 16, cùng mạng Wi-Fi.
@@ -10,11 +14,11 @@ mất thời gian vào lỗi dựng môi trường như ở gói `sec-test-2026-
 
 | Lớp kiểm thử | Công cụ | Kết quả |
 |---|---|---|
-| Unit test Attendance | JUnit 5 + Mockito (`./mvnw test`) | **42/42 đạt** (10 lớp) |
+| Unit test Attendance | JUnit 5 + Mockito (`./mvnw test`) | **45/45 đạt** (11 lớp) |
 | Unit + integration test gateway | JUnit 5, Spring Boot Test + MockMvc + H2 (`./mvnw verify`) | **24/24 đạt** (5 lớp, 4 lớp khởi động toàn bộ Spring context) |
 | Unit test app Android | JUnit 4 (`./gradlew testDebugUnitTest`) | **10/10 đạt** (3 lớp) |
 | Phân tích tĩnh app Android | Android Lint (`./gradlew lintDebug`) | **0 lỗi**, 56 cảnh báo (xem dưới) |
-| Tích hợp/E2E trên môi trường đóng gói | `deploy/verify.sh` (curl + docker) | **53/53 đạt** (lần chạy cuối trên DB sạch) |
+| Tích hợp/E2E trên môi trường đóng gói | `deploy/verify.sh` (curl + docker) | **60/60 đạt** (xem mục 4) |
 | Thử trên thiết bị thật | APK debug của gói trên Android 16 | Đạt (xem mục 5) |
 | Kiểm tra APK | aapt, apksigner, quét chuỗi | Đạt (xem mục 6) |
 | Kiểm tra gói | `sha256sum -c`, quét secret của `package.sh` | Đạt |
@@ -29,7 +33,7 @@ Lỗi phát hiện và đã sửa trong đợt này:
 
 ## 1. Unit test Attendance (Spring Boot)
 
-`./mvnw test` — 42 test, 0 lỗi. Phủ các phần đã sửa bảo mật: `FaceIdAttendanceServiceImplTest` (C2, kiểm tra người thật
+`./mvnw test` — 45 test, 0 lỗi. `PasswordPolicyTest` kiểm chính sách mật khẩu (kể cả chữ có dấu, khoảng trắng, quá 72 ký tự) và việc form đổi mật khẩu không qua `@Valid` vẫn bị chặn ở service. Phủ các phần đã sửa bảo mật: `FaceIdAttendanceServiceImplTest` (C2, kiểm tra người thật
 fail-closed, hồ sơ chưa duyệt), `FaceIdApiKeyFilterTest` (khoá API gateway), `UploadControllerTest` (C3, quyền xem ảnh),
 `OtpServiceImplTest` (C5, giới hạn 5 lần nhập), `ReportServiceImplTest` (H6, IDOR báo cáo), `OriginCheckFilterTest` (H3, CSRF),
 cùng các test nghiệp vụ nghỉ phép/đăng ký khuôn mặt.
@@ -56,7 +60,13 @@ khởi động toàn bộ ứng dụng (Spring Security, Authorization Server, J
 
 Chạy trên môi trường dựng từ chính gói này (`docker compose down -v` → `start.sh` → `verify.sh 10.33.102.101`).
 Ảnh khuôn mặt sinh trong container face-ai từ ảnh mẫu công khai đi kèm thư viện InsightFace (`deploy/faces.py`),
-không dùng ảnh nhân viên thật. Kết quả: **53/53 đạt** (lần chạy cuối trên DB sạch).
+không dùng ảnh nhân viên thật. Kết quả: **60/60 đạt** trên DB sạch, gồm 5 kiểm tra chính sách mật khẩu (đổi mật khẩu
+qua API và qua form, đăng ký, đặt lại qua gateway đều từ chối mật khẩu yếu; mật khẩu cũ không bị đổi) và 3 kiểm tra ân
+hạn refresh token. Ngoài `verify.sh`: đổi sang mật khẩu đạt chính sách thành công và đăng nhập được bằng mật khẩu mới.
+
+Lần chạy 60/60 dùng image backend và gateway build từ đúng mã nguồn của `28d`, chạy thành stack riêng (cổng khác) để không
+ảnh hưởng môi trường đang kiểm thử; image face-ai là bản của `28c` (mã face-ai không đổi, chỉ Dockerfile `28d` thêm thử lại
+khi tải — bước `pip install` và tải model của Dockerfile mới đã chạy thành công khi build thử).
 
 | Nhóm | Kiểm tra |
 |---|---|

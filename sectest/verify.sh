@@ -57,6 +57,11 @@ ok "/api/face-id/attendance sai key 401" "$(code -X POST -H 'X-API-Key: wrong-ke
 ok "/api/otp/send không key 401" "$(code -X POST -H 'Content-Type: application/json' -d '{}' $W/api/otp/send)" 401
 ok "POST khác origin 403 (CSRF)" "$(code -b $T/ia.admin -X POST -H 'Origin: http://evil.example' $W/auth/logout)" 403
 ok "POST Origin: null 403" "$(code -b $T/ia.admin -X POST -H 'Origin: null' $W/auth/logout)" 403
+# Chính sách mật khẩu: ≥ 8 ký tự, chữ hoa, chữ thường, số, ký tự đặc biệt (không đổi mật khẩu thật)
+ok "đổi mật khẩu yếu qua API bị từ chối (400)" "$(code -b $T/ia.employee -X PATCH -H "Origin: $W" -H 'Content-Type: application/json'     -d "{\"oldPassword\":\"$IA_EMPLOYEE_PASSWORD\",\"request\":{\"password\":\"weakpass123\",\"confirmPassword\":\"weakpass123\"}}" $W/api/user/change-password)" 400
+ok "đổi mật khẩu yếu qua form bị từ chối" "$(loc -b $T/ia.employee -H "Origin: $W" --data-urlencode "oldPassword=$IA_EMPLOYEE_PASSWORD"     --data-urlencode newPassword=weakpass123 --data-urlencode confirmPassword=weakpass123 $W/user/change-password)" ""
+ok "đăng ký với mật khẩu yếu bị từ chối" "$(loc -H "Origin: $W" --data-urlencode username=weakuser1 --data-urlencode email=weak1@sectest.local     --data-urlencode password=weakpass123 --data-urlencode rePassword=weakpass123 --data-urlencode fullName=Weak $W/auth/register)" ""
+ok "mật khẩu ia.employee không bị đổi" "$(curl -s -o /dev/null -w '%{redirect_url}' -H "Origin: $W" --data-urlencode login=ia.employee --data-urlencode "password=$IA_EMPLOYEE_PASSWORD" $W/auth/login)" "$W/dashboard/employee"
 ok "API thủ công cũ (C1) không còn" "$(code -b $T/ia.admin -X POST -H "Origin: $W" -H 'Content-Type: application/json' -d '{}' $W/api/face-id/attendance/manual | cut -c1)" 4
 curl -s -D "$T/h" -o /dev/null -H "Origin: $W" --data-urlencode login=ia.admin --data-urlencode "password=$IA_ADMIN_PASSWORD" $W/auth/login
 ok "cookie phiên HttpOnly + SameSite=Lax" "$(grep -i '^set-cookie: JSESSIONID' "$T/h" | grep -ci 'httponly.*samesite=lax\|samesite=lax.*httponly')" 1
@@ -79,6 +84,7 @@ psql_q "UPDATE mobile_auth.mobile_refresh_token SET expires_at = expires_at - in
         AND expires_at < (SELECT max(expires_at) - interval '1 day' FROM mobile_auth.mobile_refresh_token WHERE username = 'ia.checker')" >/dev/null
 ok "refresh token cũ bị từ chối sau ân hạn" "$(code -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$RT\"}" $G/api/v1/auth/refresh)" 401
 ok "refresh token mới vẫn dùng được" "$(code -H 'Content-Type: application/json' -d "{\"refreshToken\":\"$(echo "$R2" | json refreshToken)\"}" $G/api/v1/auth/refresh)" 200
+ok "gateway đặt lại mật khẩu yếu bị từ chối (WEAK_PASSWORD)" "$(curl -s -H 'Content-Type: application/json' -d '{"login":"ia.checker","code":"000000","newPassword":"weakpass123"}' $G/api/v1/auth/password/reset | json code)" WEAK_PASSWORD
 ok "không có trang web / (403)" "$(code $G/)" 403
 ok "không có form /login (403)" "$(code --data-urlencode username=ia.checker --data-urlencode "password=$IA_CHECKER_PASSWORD" $G/login)" 403
 ok "không có luồng PKCE /oauth2/authorize" "$(code "$G/oauth2/authorize?response_type=code&client_id=mobile-app&redirect_uri=com.attendance://oauth2callback&scope=attendance.check&code_challenge=x&code_challenge_method=S256" | cut -c1)" 4

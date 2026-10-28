@@ -1,6 +1,7 @@
 package com.attendenceSystem.module.user.dto.request;
 
 import com.attendenceSystem.annotation.RegisterPasswordMatch;
+import com.attendenceSystem.constant.PasswordPolicy;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.validation.constraints.Email;
@@ -28,7 +29,7 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 8, message = "Mật khẩu phải chứa ít nhất 8 kí tự")
+    @Pattern(regexp = PasswordPolicy.REGEX, message = PasswordPolicy.MESSAGE)
     private String password;
 
     @NotBlank(message = "Mật khẩu xác nhận không được để trống")

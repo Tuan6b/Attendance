@@ -55,8 +55,9 @@
                     <label for="password">Mật khẩu *</label>
                     <div class="auth-input">
                         <span class="md-icon">lock</span>
-                        <input id="password" type="password" th:field="*{password}" placeholder="••••••••" required />
+                        <input id="password" type="password" th:field="*{password}" placeholder="••••••••" minlength="8" maxlength="72" required />
                     </div>
+                    <small>Ít nhất 8 ký tự, gồm chữ hoa, chữ thường, chữ số và ký tự đặc biệt.</small>
                     <div class="error-message" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
                 </div>
 

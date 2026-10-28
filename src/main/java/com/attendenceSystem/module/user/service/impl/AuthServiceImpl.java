@@ -1,5 +1,6 @@
 package com.attendenceSystem.module.user.service.impl;
 
+import com.attendenceSystem.constant.PasswordPolicy;
 import com.attendenceSystem.exception.custom.ConflictException;
 import com.attendenceSystem.exception.custom.ResourceNotFoundException;
 import com.attendenceSystem.module.user.mapper.request.RegisterRequestMapper;
@@ -53,6 +54,9 @@ public class AuthServiceImpl implements AuthService {
         }
         if (existsByKeyword(request.getEmail())) {
             throw new ConflictException("Email này đã được đăng ký!");
+        }
+        if (!PasswordPolicy.isValid(request.getPassword())) {
+            throw new IllegalArgumentException(PasswordPolicy.MESSAGE);
         }
         String hashPassword = passwordEncoder.encode(request.getPassword());
         User savedUser = RegisterRequestMapper.toEntity(request, hashPassword);

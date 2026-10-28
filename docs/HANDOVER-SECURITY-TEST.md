@@ -71,7 +71,7 @@ Yêu cầu: Docker có compose v2 (Linux, macOS, hoặc Docker Desktop trên Win
 4. Kiểm tra: mở `http://<host>:9090` (trang đăng nhập), `http://<host>:8081/actuator/health` (`{"status":"UP"}`),
    `http://<host>:8025` (Mailpit). Gateway không có trang web: mở `http://<host>:8081/` trên trình duyệt trả 403 là
    đúng; thử gateway bằng API (`docs/mobile-api.md`) hoặc qua app.
-5. (Khuyến nghị) Tự kiểm tra toàn bộ: `cd deploy && ./verify.sh <host>` — khoảng 1 phút, in PASS/FAIL cho 53 kiểm tra:
+5. (Khuyến nghị) Tự kiểm tra toàn bộ: `cd deploy && ./verify.sh <host>` — khoảng 1 phút, in PASS/FAIL cho 60 kiểm tra:
    đăng nhập từng role, phân quyền, gateway, OTP, và một lượt chấm công đầy đủ (đăng ký mặt → duyệt → vào ca → tan ca).
    Script **tạo dữ liệu** (mặt và chấm công của `ia.employee`, giờ ca nới rộng); muốn bắt đầu kiểm thử từ môi trường sạch thì
    chạy tiếp `docker compose down -v && ./start.sh`. Có mục FAIL thì gửi kèm toàn bộ output cho team phát triển.
@@ -98,6 +98,11 @@ Dừng: `docker compose down` trong `deploy/`. Xoá sạch dữ liệu để là
 | `ia.checker` | CHECKER | Chỉ màn kích hoạt của app máy quét (web từ chối CHECKER) |
 
 Mật khẩu trong `CREDENTIALS.txt`. Tạo thêm nhân viên qua trang đăng ký (OTP xem ở Mailpit) hoặc bằng `ia.admin`.
+
+**Chính sách mật khẩu** (đăng ký, đổi mật khẩu, quên mật khẩu trên web, đặt lại mật khẩu máy quét qua gateway): 8–72 ký tự,
+có ít nhất 1 chữ hoa, 1 chữ thường, 1 chữ số và 1 ký tự đặc biệt (không phải chữ, số hay khoảng trắng; chữ có dấu như "ậ"
+tính là chữ). Kiểm tra ở server, kể cả khi gọi thẳng API. Chỉ áp khi **đặt** mật khẩu: tài khoản cũ có mật khẩu yếu vẫn
+đăng nhập được cho tới khi đổi.
 
 ### 4.1. Giờ ca (làm trước khi thử chấm công)
 
@@ -216,6 +221,7 @@ Xem đầy đủ trong `docs/SECURITY-AUDIT.md`. Tóm tắt:
 | H4 | `/api/otp/*` chỉ cho gateway; nút gửi lại mã luôn trả 204 | Gửi OTP tới địa chỉ tuỳ ý; dò email có tài khoản |
 | H6 | Báo cáo chỉ người nộp/được chia sẻ/ADMIN xem được | IDOR `GET /api/report/{id}`, file đính kèm |
 | M3, M6, M7 | Role CHECKER; kiosk lock task; R8 cho release | CHECKER đăng nhập web; thoát kiosk |
+| Mới | Chính sách mật khẩu (8–72 ký tự, chữ hoa, chữ thường, số, ký tự đặc biệt) ở mọi luồng đặt mật khẩu | Đăng ký/đổi/quên mật khẩu bằng mật khẩu yếu qua form, API, gateway |
 | M8 (một phần) | Bỏ form `/login` và luồng OAuth2 auth code + PKCE ở gateway; chỉ còn client_credentials cho server (scope `face.embed` vẫn còn, đã biết) | `/login`, `/oauth2/authorize` trên 8081; lấy token bằng `authorization_code` |
 
 **Còn mở — đã biết (không cần báo lại, trừ khi tìm ra cách khai thác nghiêm trọng hơn):**

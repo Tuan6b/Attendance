@@ -78,6 +78,7 @@ fi
 
 echo "== 3. Sinh secret mới cho môi trường test"
 rand() { openssl rand -base64 64 | tr -dc 'A-Za-z0-9' | cut -c1-"$1"; }
+pw() { echo "$(rand 8)-$(rand 8)Aa9"; }   # mật khẩu tài khoản test: đủ chữ hoa, chữ thường, số, ký tự đặc biệt
 FACE_AI_API_KEY=$(rand 48) FACE_ID_API_KEY=$(rand 48) POSTGRES_PASSWORD=$(rand 32)
 GATEWAY_DB_PASSWORD=$(rand 32) JWT_KEYSTORE_PASSWORD=$(rand 32) SERVER_CLIENT_SECRET=$(rand 48)
 cat > "$OUT/deploy/.env" <<EOF
@@ -109,10 +110,10 @@ keytool -genkeypair -alias jwt -keyalg RSA -keysize 2048 -storetype PKCS12 -vali
     -keystore "$OUT/deploy/secrets/jwt.p12" -storepass "$JWT_KEYSTORE_PASSWORD" -keypass "$JWT_KEYSTORE_PASSWORD" 2>/dev/null
 cat > "$OUT/CREDENTIALS.env" <<EOF
 GATEWAY_DB_PASSWORD=$GATEWAY_DB_PASSWORD
-IA_ADMIN_PASSWORD=$(rand 20)
-IA_MANAGER_PASSWORD=$(rand 20)
-IA_EMPLOYEE_PASSWORD=$(rand 20)
-IA_CHECKER_PASSWORD=$(rand 20)
+IA_ADMIN_PASSWORD=$(pw)
+IA_MANAGER_PASSWORD=$(pw)
+IA_EMPLOYEE_PASSWORD=$(pw)
+IA_CHECKER_PASSWORD=$(pw)
 EOF
 . "$OUT/CREDENTIALS.env"
 cat > "$OUT/CREDENTIALS.txt" <<EOF
