@@ -1,0 +1,27 @@
+# Reverse proxy TLS (audit H2). PUBLIC_HOST: tên miền hoặc IP; TLS_MODE: email (Let's Encrypt) hoặc "internal"
+# (chứng chỉ ký bằng CA riêng trong secrets/ca, do package.sh sinh — APK đã nhúng sẵn CA này).
+{
+	# Máy khách gọi bằng IP không gửi SNI; trong container Caddy không biết IP máy chủ
+	default_sni {$PUBLIC_HOST}
+	skip_install_trust
+	pki {
+		ca local {
+			root {
+				cert /ca/root.crt
+				key /ca/root.key
+			}
+		}
+	}
+}
+
+# Web Attendance. Caddy giữ nguyên header Host (OriginCheckFilter của backend so Origin với Host).
+{$PUBLIC_HOST} {
+	tls {$TLS_MODE}
+	reverse_proxy backend:9090
+}
+
+# Mobile gateway cho app máy quét
+{$PUBLIC_HOST}:8443 {
+	tls {$TLS_MODE}
+	reverse_proxy mobile-backend:8080
+}

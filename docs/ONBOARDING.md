@@ -318,6 +318,10 @@ python -m venv .venv
 Thứ tự khởi động hằng ngày: Docker Desktop → `docker compose start postgres` → Run backend
 (IntelliJ) → `start_face_ai.bat`.
 
+### Production — gói triển khai lên server ✅
+
+`prod/package.sh` đóng gói (mã nguồn, secret sinh mới, Caddy TLS, APK release); hướng dẫn đầy đủ ở `docs/DEPLOY.md`.
+
 ### Cách B — Docker Compose toàn bộ  ⚠️ (chưa kiểm chứng — build image backend chưa test)
 
 `docker-compose.yml` định nghĩa 3 service: `postgres`, `face-ai`, `backend`.

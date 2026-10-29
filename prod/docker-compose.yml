@@ -1,0 +1,105 @@
+# Môi trường production. Được prod/package.sh chép vào <gói>/deploy/, build từ mã nguồn trong <gói>/src/.
+# Secret nằm trong deploy/.env, deploy/*.env do package.sh sinh mới. Khởi động bằng deploy/start.sh (không chạy `up`
+# trực tiếp lần đầu: gateway cần role DB do init-db.sql tạo sau khi backend đã sinh bảng). Xem docs/DEPLOY.md.
+# Chỉ Caddy mở cổng ra ngoài (80, 443 web, 8443 gateway), mọi dịch vụ khác chỉ nói chuyện trong network compose.
+name: attendance-prod
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: attendance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?thiếu trong .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./schema-mobile-auth.sql:/init/schema-mobile-auth.sql:ro
+    restart: unless-stopped
+    <<: *logging
+
+  face-ai:
+    build: ../src/attendance/face-ai
+    image: attendance/face-ai:${PACKAGE_TAG:-local}
+    env_file: ./face-ai.env
+    volumes:
+      - face-ai-data:/app/data
+    restart: unless-stopped
+    <<: *logging
+
+  backend:
+    build: ../src/attendance
+    image: attendance/backend:${PACKAGE_TAG:-local}
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/attendance
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      FACE_AI_BASE_URL: http://face-ai:8002
+      FACE_AI_API_KEY: ${FACE_AI_API_KEY:?thiếu trong .env}
+      FACE_ID_API_KEY: ${FACE_ID_API_KEY:?thiếu trong .env}
+      # Sau Caddy: redirect dùng https, cookie phiên chỉ gửi qua TLS
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SERVER_SERVLET_SESSION_COOKIE_SECURE: "true"
+      # application.properties để giá trị cho dev
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_THYMELEAF_CACHE: "true"
+      # Tài khoản/mật khẩu email hệ thống nhập trong web (Cài đặt hệ thống); ở đây chỉ máy chủ SMTP
+      APP_MAIL_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      APP_MAIL_PORT: ${SMTP_PORT:-587}
+      APP_MAIL_STARTTLS: ${SMTP_STARTTLS:-true}
+    volumes:
+      - uploads-data:/app/uploads
+    depends_on:
+      - postgres
+      - face-ai
+    restart: unless-stopped
+    <<: *logging
+
+  mobile-backend:
+    build: ../src/mobileBackend
+    image: attendance/mobile-backend:${PACKAGE_TAG:-local}
+    env_file: ./mobile-backend.env
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/attendance?currentSchema=mobile_auth,public
+      FACE_AI_BASE_URL: http://face-ai:8002
+      FACE_AI_API_KEY: ${FACE_AI_API_KEY}
+      ATTENDANCE_BASE_URL: http://backend:9090
+      ATTENDANCE_API_KEY: ${FACE_ID_API_KEY}
+    volumes:
+      - ./secrets/jwt.p12:/app/secrets/jwt.p12:ro
+    depends_on:
+      - postgres
+      - face-ai
+      - backend
+    restart: unless-stopped
+    <<: *logging
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?thiếu trong .env}
+      TLS_MODE: ${TLS_MODE:?thiếu trong .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8443:8443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./secrets/ca:/ca:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - backend
+    restart: unless-stopped
+    <<: *logging
+
+volumes:
+  postgres-data:
+  face-ai-data:
+  uploads-data:
+  caddy-data:
+  caddy-config:
