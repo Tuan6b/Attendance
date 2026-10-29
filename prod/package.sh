@@ -99,60 +99,18 @@ for f in "$OUT"/src/attendance/face-ai/models/anti_spoofing/*.onnx; do
     [ "$(wc -c < "$f")" -gt 10000 ] || { echo "  $f là con trỏ Git LFS: chạy git lfs install && git lfs pull"; exit 1; }
 done
 
-rand() { openssl rand -base64 64 | tr -dc 'A-Za-z0-9' | cut -c1-"$1"; }
 if [ -n "$SECRETS_FROM" ]; then
 echo "== 3. Dùng lại secret của $SECRETS_FROM"
 cp -R "$SECRETS_FROM"/{.env,face-ai.env,mobile-backend.env,secrets} "$OUT/deploy/"
 sed -i "s|^PACKAGE_TAG=.*|PACKAGE_TAG=$NAME|" "$OUT/deploy/.env"
 else
 echo "== 3. Sinh secret production"
-FACE_AI_API_KEY=$(rand 48) JWT_KEYSTORE_PASSWORD=$(rand 32) ADMIN_INITIAL_PASSWORD="$(rand 10)-$(rand 10)Aa9"
-cat > "$OUT/deploy/.env" <<EOF
-PACKAGE_TAG=$NAME
-PUBLIC_HOST=$HOST
-TLS_MODE=$TLS_MODE
-POSTGRES_PASSWORD=$(rand 32)
-GATEWAY_DB_PASSWORD=$(rand 32)
-FACE_AI_API_KEY=$FACE_AI_API_KEY
-FACE_ID_API_KEY=$(rand 48)
-ADMIN_INITIAL_PASSWORD=$ADMIN_INITIAL_PASSWORD
-# Máy chủ SMTP gửi OTP (tài khoản/mật khẩu email nhập trong web: Cài đặt hệ thống)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_STARTTLS=true
-EOF
+NAME=$NAME bash "$ROOT/prod/init-secrets.sh" "$OUT/deploy" "$HOST" "$ACME_EMAIL"
 . "$OUT/deploy/.env"
-sed -e "s|^SECRET_KEY=.*|SECRET_KEY=$(rand 48)|" -e "s|^DEFAULT_ADMIN_PASSWORD=.*|DEFAULT_ADMIN_PASSWORD=$(rand 24)|" \
-    -e "s|^INTERNAL_API_KEY=.*|INTERNAL_API_KEY=$FACE_AI_API_KEY|" "$ROOT/face-ai/.env.example" > "$OUT/deploy/face-ai.env"
-cat > "$OUT/deploy/mobile-backend.env" <<EOF
-PORT=8080
-DB_USERNAME=mobile_gateway
-DB_PASSWORD=$GATEWAY_DB_PASSWORD
-OAUTH2_ISSUER=$GATEWAY_URL
-JWT_KEYSTORE_PATH=/app/secrets/jwt.p12
-JWT_KEYSTORE_PASSWORD=$JWT_KEYSTORE_PASSWORD
-JWT_KEY_ALIAS=jwt
-SERVER_CLIENT_ID=attendance-server
-SERVER_CLIENT_SECRET=$(rand 48)
-MOBILE_CLIENT_ID=mobile-app
-LOGIN_OTP_ENABLED=false
-REFRESH_REUSE_GRACE=5m
-EOF
-keytool -genkeypair -alias jwt -keyalg RSA -keysize 2048 -storetype PKCS12 -validity 3650 -dname "CN=attendance-gateway" \
-    -keystore "$OUT/deploy/secrets/jwt.p12" -storepass "$JWT_KEYSTORE_PASSWORD" -keypass "$JWT_KEYSTORE_PASSWORD" 2>/dev/null
-# CA riêng cho "tls internal" (Caddyfile luôn nạp nên sinh cả khi dùng Let's Encrypt). MSYS2_ARG_CONV_EXCL: Git Bash
-# không đổi "/CN=..." thành đường dẫn Windows (vẫn đổi đường dẫn file).
-MSYS2_ARG_CONV_EXCL=/CN= openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 3650 \
-    -subj "/CN=Attendance $NAME Root CA" -addext "basicConstraints=critical,CA:TRUE" \
-    -addext "keyUsage=critical,keyCertSign,cRLSign" \
-    -keyout "$OUT/deploy/secrets/ca/root.key" -out "$OUT/deploy/secrets/ca/root.crt" 2>/dev/null
 fi
 cp "$ROOT"/prod/{docker-compose.yml,Caddyfile,init-db.sql,start.sh,backup.sh} "$OUT/deploy/"
-cp "$OUT/src/mobileBackend/src/main/resources/schema-mobile-auth.sql" "$OUT/deploy/"
 chmod +x "$OUT/deploy/start.sh" "$OUT/deploy/backup.sh"
-# umask 077 → mọi file 600; Caddy, postgres (root trong container) vẫn đọc được. Riêng jwt.p12: gateway chạy user
-# không phải root nên phải đọc được; keystore đã có mật khẩu (trong mobile-backend.env, 600).
-chmod 644 "$OUT/deploy/secrets/jwt.p12"
+# umask 077 → mọi file 600; Caddy, postgres (root trong container) vẫn đọc được (jwt.p12: init-secrets.sh để 644)
 
 if [ -z "$ACME_EMAIL" ]; then
     cp "$OUT/deploy/secrets/ca/root.crt" "$OUT/ca.crt"
