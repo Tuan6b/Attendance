@@ -48,7 +48,7 @@ Không truyền `--apk-keystore` thì gói có APK chưa ký (không cài đư�
 
 ## 3. Cài đặt lần đầu (server)
 
-Yêu cầu server: Linux x86_64, Docker Engine + compose v2, RAM ≥ 4 GB, đĩa ≥ 15 GB. Mở cổng 80, 443, 8443
+Yêu cầu server: Linux x86_64 (ARM64 như Oracle Ampere: chưa thử), Docker Engine + compose v2, RAM ≥ 4 GB, đĩa ≥ 15 GB. Mở cổng 80, 443, 8443
 (tường lửa/NAT). Có tên miền: bản ghi DNS A của `<host>` trỏ về IP public của server trước khi khởi động.
 
 ```bash
@@ -125,3 +125,37 @@ docker compose up -d
 - Chuyển từ IP sang tên miền về sau: trong bản sao `deploy/` của bản đang chạy sửa `PUBLIC_HOST`, `TLS_MODE=<email>`
   (`.env`) và `OAUTH2_ISSUER=https://<tên miền>:8443` (`mobile-backend.env`), rồi đóng gói `--secrets-from` như mục 4
   và cài APK mới lên máy quét.
+
+## 8. Bản beta: chạy thẳng từ repo trên server
+
+Dùng khi thử nghiệm, sửa lỗi liên tục: server giữ bản clone, cập nhật bằng `git pull`, build tại chỗ, không cần `package.sh`.
+Chỉ dùng với tên miền (Let's Encrypt), ví dụ subdomain miễn phí DuckDNS. Chế độ IP cần APK nhúng CA, nên dùng `package.sh`.
+
+Server cần: Docker + compose v2, git, git-lfs, openssl, keytool (Ubuntu:
+`apt install git git-lfs openssl openjdk-21-jre-headless`), RAM ≥ 4 GB. DNS của `<host>` trỏ về IP server, mở cổng 80, 443,
+8443 (Oracle Cloud: mở ở cả Security List lẫn iptables trong VM).
+
+```bash
+git lfs install                 # trước khi clone: thiếu thì model chống giả mạo chỉ là file con trỏ (start.sh sẽ chặn)
+mkdir -p ~/app && cd ~/app      # Attendance/ và mobileBackend/ phải nằm cạnh nhau (hai repo, hoặc một repo tổng chứa cả hai)
+git clone https://github.com/Tuan6b/Attendance.git
+git clone https://github.com/Tuan6b/mobileBackend.git     # repo private: gh auth login hoặc deploy key
+cd Attendance
+prod/init-secrets.sh prod <host> <email>    # một lần: sinh prod/.env, prod/*.env, prod/secrets/
+prod/start.sh                                # build + khởi động; mật khẩu admin: ADMIN_INITIAL_PASSWORD trong prod/.env
+```
+Sau đó làm các bước sau cài đặt ở mục 3 (bỏ bước 4).
+
+Cập nhật sau khi push bản sửa (chỉ build lại image có thay đổi, dữ liệu trong volume giữ nguyên, `init-db.sql` chạy lại không sao):
+```bash
+cd ~/app && git -C Attendance pull && git -C mobileBackend pull && Attendance/prod/start.sh
+```
+Bản sửa gây lỗi: `git -C Attendance checkout <commit cũ>` rồi `Attendance/prod/start.sh`.
+
+APK (máy dev, repo DxLabAttendance): `./gradlew assembleRelease -PcheckerBaseUrl=https://<host>:8443`, ký như mục 2.
+
+Lưu ý:
+- Secret nằm trong `Attendance/prod/` (đã có `.gitignore`). Không `git add -f`, không `git clean -x` (xoá mất secret).
+  Sao lưu `prod/.env`, `prod/*.env`, `prod/secrets/` một lần, cất như mật khẩu.
+- Sao lưu, vận hành như mục 5, 6, chạy trong `Attendance/prod/` thay cho `deploy/`.
+- Muốn chuyển sang gói chính thức về sau: đóng gói `--secrets-from Attendance/prod` (mục 4), dữ liệu giữ nguyên.

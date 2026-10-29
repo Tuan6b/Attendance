@@ -1,0 +1,5 @@
+# Secret và bản sao lưu khi chạy thẳng từ repo (init-secrets.sh prod ...): không bao giờ commit
+.env
+*.env
+secrets/
+backups/

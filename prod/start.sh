@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dựng / cập nhật production từ gói. Chạy trong thư mục deploy/ của gói:
+# Dựng / cập nhật production. Chạy trong deploy/ của gói, hoặc prod/ của repo (bản beta, docs/DEPLOY.md mục 8):
 #   ./start.sh            # build image từ ../src (lần đầu 10–20 phút, cần Internet) + khởi động + khởi tạo DB
 #   ./start.sh --no-build # dùng image đã nạp từ ../images/*.tar (docker load)
 # Chạy lại được (cập nhật bản mới, dữ liệu trong volume giữ nguyên). Cần: Docker có compose v2.
@@ -9,6 +9,11 @@ cd "$(dirname "$0")"
 BUILD=--build
 [ "${1:-}" = "--no-build" ] && BUILD=
 set -a; . ./.env; set +a
+if [ -n "$BUILD" ]; then   # clone khi chưa cài Git LFS → model là file con trỏ: build vẫn qua nhưng liveness hỏng
+    for f in "${ATTENDANCE_SRC:-../src/attendance}"/face-ai/models/anti_spoofing/*.onnx; do
+        [ "$(wc -c < "$f")" -gt 10000 ] || { echo "$f là con trỏ Git LFS: cài git-lfs rồi git lfs pull"; exit 1; }
+    done
+fi
 psql() { docker compose exec -T postgres psql -U postgres -d attendance -v ON_ERROR_STOP=1 "$@"; }
 
 echo "1/4 Khởi động postgres, face-ai, backend, caddy..."
@@ -32,5 +37,5 @@ docker compose up -d $BUILD mobile-backend
 cat <<EOF
 
 Xong. Web: https://$PUBLIC_HOST   Gateway (app máy quét): https://$PUBLIC_HOST:8443
-Lần đầu: đăng nhập admin (mật khẩu trong CREDENTIALS.txt), đổi mật khẩu, cấu hình email hệ thống. Xem README.md.
+Lần đầu: đăng nhập admin (mật khẩu: CREDENTIALS.txt của gói, hoặc ADMIN_INITIAL_PASSWORD trong .env), đổi mật khẩu, cấu hình email hệ thống. Xem README.md.
 EOF
