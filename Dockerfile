@@ -15,8 +15,14 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY --from=build /app/target/*.jar app.jar
+# Không chạy bằng root. Volume uploads mới tạo nhận quyền của thư mục này (volume cũ: prod/start.sh đổi chủ)
+RUN useradd --system --no-create-home appuser && \
+    mkdir uploads && \
+    chown -R appuser:appuser /app
+
+COPY --from=build --chown=appuser:appuser /app/target/*.jar app.jar
 
 EXPOSE 9090
+USER appuser
 
 ENTRYPOINT ["java","-jar","app.jar"]

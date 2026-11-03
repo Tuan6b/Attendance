@@ -8,6 +8,7 @@ cd "$(dirname "$0")"
 
 BUILD=--build
 [ "${1:-}" = "--no-build" ] && BUILD=
+sed -i 's/\r$//' .env face-ai.env mobile-backend.env   # chép/sửa trên Windows: \r sẽ dính vào cuối mật khẩu
 set -a; . ./.env; set +a
 if [ -n "$BUILD" ]; then   # clone khi chưa cài Git LFS → model là file con trỏ: build vẫn qua nhưng liveness hỏng
     for f in "${ATTENDANCE_SRC:-../src/attendance}"/face-ai/models/anti_spoofing/*.onnx; do
@@ -18,6 +19,9 @@ psql() { docker compose exec -T postgres psql -U postgres -d attendance -v ON_ER
 
 echo "1/4 Khởi động postgres, face-ai, backend, caddy..."
 docker compose up -d $BUILD postgres face-ai backend caddy
+
+# Backend không chạy bằng root nữa: volume tạo từ image cũ vẫn thuộc root, upload sẽ lỗi
+MSYS_NO_PATHCONV=1 docker compose run --rm --no-deps --user root --entrypoint chown backend -R appuser:appuser /app/uploads
 
 echo "2/4 Chờ backend tạo bảng (Hibernate ddl-auto)..."
 for i in $(seq 1 90); do

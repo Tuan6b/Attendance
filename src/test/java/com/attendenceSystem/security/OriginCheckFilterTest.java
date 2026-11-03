@@ -34,8 +34,9 @@ class OriginCheckFilterTest {
     }
 
     @Test
-    void serverToServerCallsWithoutBrowserHeadersPass() throws Exception {
-        assertEquals(200, post(null, null)); // mobile gateway
+    void serverToServerCallsWithoutBrowserHeadersPassOnApiOnly() throws Exception {
+        assertEquals(200, post("/api/face-id/attendance", null, null)); // mobile gateway
+        assertEquals(403, post("/auth/login", null, null));
     }
 
     @Test
@@ -49,7 +50,11 @@ class OriginCheckFilterTest {
     }
 
     private int post(String header, String value) throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/auth/login");
+        return post("/auth/login", header, value);
+    }
+
+    private int post(String path, String header, String value) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
         request.addHeader("Host", "attendance.local:9090");
         if (header != null) {
             request.addHeader(header, value);

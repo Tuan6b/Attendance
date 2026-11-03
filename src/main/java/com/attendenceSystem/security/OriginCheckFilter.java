@@ -22,7 +22,8 @@ import jakarta.servlet.http.HttpServletResponse;
  * <ul>
  * <li>So authority (host[:port]) với header Host, bỏ qua scheme — sau reverse proxy TLS scheme khác nhau.</li>
  * <li>{@code Origin: null} (iframe sandbox, redirect chéo) → chặn.</li>
- * <li>Không có cả Origin lẫn Referer → cho qua: không phải trình duyệt (mobile gateway gọi server-to-server).</li>
+ * <li>Không có cả Origin lẫn Referer → chỉ cho qua với {@code /api/}: không phải trình duyệt (mobile gateway gọi
+ * server-to-server). Trang web thì chặn: trình duyệt luôn gửi Origin khi POST.</li>
  * </ul>
  */
 public class OriginCheckFilter extends OncePerRequestFilter {
@@ -42,7 +43,8 @@ public class OriginCheckFilter extends OncePerRequestFilter {
         if (source == null) {
             source = request.getHeader("Referer");
         }
-        if (SAFE_METHODS.contains(request.getMethod()) || source == null || isAllowed(source, request)) {
+        boolean allowed = source == null ? request.getRequestURI().startsWith("/api/") : isAllowed(source, request);
+        if (SAFE_METHODS.contains(request.getMethod()) || allowed) {
             chain.doFilter(request, response);
             return;
         }
