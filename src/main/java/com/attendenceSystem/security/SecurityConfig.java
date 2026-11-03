@@ -19,6 +19,7 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
@@ -32,6 +33,19 @@ import lombok.RequiredArgsConstructor;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+    // ponytail: 'unsafe-inline' vì nhiều template có script/style inline, nên CSP này chưa chặn được XSS inline
+    // (vẫn chặn nhúng iframe, plugin, gửi dữ liệu ra host lạ). Chuyển script inline ra file/nonce rồi bỏ.
+    private static final String CONTENT_SECURITY_POLICY = String.join("; ",
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+            "font-src 'self' data: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com",
+            "img-src 'self' data: blob: https://i.pinimg.com",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'");
+
     private final ActiveUserFilter activeUserFilter;
     private final FaceIdApiKeyFilter faceIdApiKeyFilter;
     private final CustomUserDetailsService userDetailsService;
@@ -57,6 +71,10 @@ public class SecurityConfig {
                 // Token CSRF của Spring tắt (form/fetch hiện có không gửi token); thay bằng OriginCheckFilter
                 // + cookie phiên SameSite=Lax (application.properties)
                 .csrf(csrf -> csrf.disable())
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+                        .referrerPolicy(referrer -> referrer
+                                .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN)))
                 .addFilterAfter(new OriginCheckFilter(corsConfigurationSource), CorsFilter.class)
                 .authenticationProvider(authenticationProvider())
                 .securityContext(context -> context.securityContextRepository(securityContextRepository()))

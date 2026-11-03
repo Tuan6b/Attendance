@@ -220,7 +220,7 @@ bảo mật cần biết ngay khi tiếp nhận. Muốn bật thật thì phải
 ```properties
 DB_URL=jdbc:postgresql://localhost:5432/attendance
 DB_USERNAME=postgres
-DB_PASSWORD=password              # đã đổi từ 'annguyenthanh2k5' cho khớp docker-compose
+DB_PASSWORD=password
 ```
 Các khoá khác nằm sẵn trong `application.properties`:
 - `server.port=${PORT:9090}` — đã đổi từ 8080 (8080 bị dùng cho việc khác)
@@ -239,7 +239,7 @@ Không nằm trong file config — ADMIN phải nhập qua giao diện:
 - `leave_blackout_minutes`
 
 ### face-ai
-`face-ai/.env` (⚠️ **đang bị commit vào git** — xem §10):
+`face-ai/.env` (git-ignore, tạo từ `.env.example`, không commit):
 ```properties
 INTERNAL_API_KEY=doi-thanh-chuoi-bi-mat-cua-ban-123456
 DEFAULT_ADMIN_USERNAME=admin
@@ -354,12 +354,13 @@ curl -X POST http://localhost:9090/api/face-id/pose-check \
 ## 11. Rủi ro & nợ kỹ thuật (đọc kỹ trước khi nhận)
 
 ### Bảo mật — ưu tiên xử lý
-1. **`face-ai/.env` bị commit vào git** (từ commit `bb3c5c5`), chứa `SECRET_KEY` và
-   `INTERNAL_API_KEY`. Repo ở `github.com/minhhai266/Attendance`.
-   → `git rm --cached face-ai/.env`, xoay (rotate) cả 2 khoá, dùng `.env.example` làm mẫu.
-2. **Ảnh mặt thật + DB có dữ liệu bị commit**: `face-ai/data/face_lab.db` (495 KB, có dữ
-   liệu), và trong lịch sử có `face-ai/storage/private/faces/HE*.jpg`, `evidence/*.jpg` —
-   ảnh khuôn mặt gắn mã sinh viên FPT. Cần dọn khỏi repo/lịch sử.
+1. **`face-ai/.env` từng bị commit vào git** (từ commit `bb3c5c5`), chứa `SECRET_KEY` và
+   `INTERNAL_API_KEY`. Đã gỡ khỏi `main`, nhưng giá trị cũ còn trong lịch sử.
+   → Xoay (rotate) cả 2 khoá, tạo `face-ai/.env` từ `.env.example`.
+2. **Ảnh mặt thật + DB có dữ liệu từng bị commit**: `face-ai/data/face_lab.db` (495 KB, có dữ
+   liệu), `uploads/face_samples/` và `uploads/reports/`. Đã gỡ khỏi `main`. Lịch sử git vẫn còn
+   các file này và `face-ai/storage/private/faces/HE*.jpg`, `evidence/*.jpg` — ảnh khuôn mặt gắn
+   mã sinh viên FPT. Cần dọn khỏi lịch sử.
 3. **`/api/face-id/**` mở toàn bộ**: `FaceIdApiKeyFilter` bị comment hết phần kiểm key, và
    `SecurityConfig` để `permitAll`. → **Bất kỳ ai trong mạng gọi được
    `POST /api/face-id/attendance/manual` để điểm danh hộ bất kỳ nhân viên nào**, và
@@ -419,8 +420,10 @@ face-ai tự dùng nội bộ. Có thể xoá file để reset — `init_db()` t
 ## 13. Việc nên làm ngay khi tiếp nhận
 
 - [ ] Đổi mật khẩu admin (`Admin@123`) sau khi đăng nhập
-- [ ] `git rm --cached face-ai/.env`, xoay `SECRET_KEY` + `INTERNAL_API_KEY` + `face-ai.api-key`
-- [ ] Dọn `face-ai/data/face_lab.db`, ảnh mặt trong `face-ai/storage/` khỏi repo/lịch sử
+- [x] `git rm --cached face-ai/.env`
+- [ ] Xoay `SECRET_KEY` + `INTERNAL_API_KEY` + `face-ai.api-key` (giá trị cũ còn trong lịch sử git)
+- [x] Gỡ `face-ai/data/face_lab.db`, `uploads/` khỏi `main`
+- [ ] Xoá `uploads/`, `face-ai/data/face_lab.db`, `face-ai/storage/`, `face-ai/.env` khỏi lịch sử git (ảnh khuôn mặt)
 - [x] Bật lại `FaceIdApiKeyFilter` (hoặc siết `/api/face-id/**` trong `SecurityConfig`) — xong ở audit C2
 - [ ] Cấu hình email trong trang `/system` để test luồng OTP
 - [ ] Hỏi team cũ: (1) có frontend Flutter (port 5000) không? (2) môi trường production đang ở đâu?

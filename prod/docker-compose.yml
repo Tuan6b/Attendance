@@ -45,9 +45,6 @@ services:
       # Sau Caddy: redirect dùng https, cookie phiên chỉ gửi qua TLS
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       SERVER_SERVLET_SESSION_COOKIE_SECURE: "true"
-      # application.properties để giá trị cho dev
-      SPRING_JPA_SHOW_SQL: "false"
-      SPRING_THYMELEAF_CACHE: "true"
       # Tài khoản/mật khẩu email hệ thống nhập trong web (Cài đặt hệ thống); ở đây chỉ máy chủ SMTP
       APP_MAIL_HOST: ${SMTP_HOST:-smtp.gmail.com}
       APP_MAIL_PORT: ${SMTP_PORT:-587}

@@ -45,6 +45,8 @@ cookie.txt
 response.txt
 target/
 uploads/
+face-ai/data/*.db
+face-ai/storage/
 
 # Ignore .env files
 .env
